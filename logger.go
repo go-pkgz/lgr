@@ -20,6 +20,7 @@ type Logger struct {
 	callers        bool
 	now            nowFn
 	fatal          panicFn
+	skipCallers    int
 }
 
 type nowFn func() time.Time
@@ -29,10 +30,11 @@ type panicFn func()
 // Two writers can be passed optionally - first for out and second for err
 func New(options ...Option) *Logger {
 	res := Logger{
-		now:    time.Now,
-		fatal:  func() { os.Exit(1) },
-		stdout: os.Stdout,
-		stderr: os.Stderr,
+		now:         time.Now,
+		fatal:       func() { os.Exit(1) },
+		stdout:      os.Stdout,
+		stderr:      os.Stderr,
+		skipCallers: 1,
 	}
 	for _, opt := range options {
 		opt(&res)
@@ -52,7 +54,7 @@ func (l *Logger) Logf(format string, args ...interface{}) {
 	bld.WriteString(lv)
 
 	if l.dbg && l.callers {
-		if pc, file, line, ok := runtime.Caller(1); ok {
+		if pc, file, line, ok := runtime.Caller(l.skipCallers); ok {
 			fnameElems := strings.Split(file, "/")
 			funcNameElems := strings.Split(runtime.FuncForPC(pc).Name(), "/")
 			srcFileInfo := fmt.Sprintf("{%s:%d %s} ", strings.Join(fnameElems[len(fnameElems)-2:], "/"),

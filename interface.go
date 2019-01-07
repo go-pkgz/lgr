@@ -34,6 +34,7 @@ func Print(line string) {
 // Setup default logger with options
 func Setup(opts ...Option) {
 	def = New(opts...)
+	def.skipCallers = 2
 }
 
 // Default returns pre-constructed def logger (debug on, callers disabled)
