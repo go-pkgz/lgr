@@ -26,6 +26,11 @@ func Printf(format string, args ...interface{}) {
 	def.Logf(format, args...)
 }
 
+// Print simplifies replacement of std logger
+func Print(line string) {
+	def.Logf(line)
+}
+
 // Setup default logger with options
 func Setup(opts ...Option) {
 	def = New(opts...)
