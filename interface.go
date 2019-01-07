@@ -2,7 +2,7 @@ package lgr
 
 import stdlog "log"
 
-var def = New(Debug) // default logger allow DEBUG but doesn't add caller info
+var def = New() // default logger doesn't allow DEBUG and doesn't add caller info
 
 // L defines minimal interface used to log things
 type L interface {
@@ -24,6 +24,11 @@ var Std = Func(func(format string, args ...interface{}) { stdlog.Printf(format, 
 // Printf simplifies replacement of std logger
 func Printf(format string, args ...interface{}) {
 	def.Logf(format, args...)
+}
+
+// Setup default logger with options
+func Setup(opts ...Option) {
+	def = New(opts...)
 }
 
 // Default returns pre-constructed def logger (debug on, callers disabled)
