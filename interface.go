@@ -25,3 +25,6 @@ var Std = Func(func(format string, args ...interface{}) { stdlog.Printf(format, 
 func Printf(format string, args ...interface{}) {
 	def.Logf(format, args...)
 }
+
+// Default returns pre-constructed def logger (debug on, callers disabled)
+func Default() L { return def }
