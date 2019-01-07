@@ -58,20 +58,20 @@ func (l *Logger) Logf(format string, args ...interface{}) {
 	if lv == "DEBUG " && !l.dbg {
 		return
 	}
-	bld.WriteString(msg)
-	bld.WriteString("\n")
+	bld.WriteString(msg)  //nolint
+	bld.WriteString("\n") //nolint
 
 	l.lock.Lock()
 	msgb := []byte(bld.String())
-	l.stdout.Write(msgb)
+	l.stdout.Write(msgb) //nolint
 
 	switch lv {
 	case "PANIC ", "FATAL ":
-		l.stderr.Write(msgb)
-		l.stderr.Write(getDump())
+		l.stderr.Write(msgb)      //nolint
+		l.stderr.Write(getDump()) //nolint
 		l.fatal()
 	case "ERROR ":
-		l.stderr.Write(msgb)
+		l.stderr.Write(msgb) //nolint
 	}
 
 	l.lock.Unlock()
