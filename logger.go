@@ -17,6 +17,7 @@ type Logger struct {
 	stdout, stderr io.Writer
 	dbg            bool
 	lock           sync.Mutex
+	callers        bool
 	now            nowFn
 	fatal          panicFn
 }
@@ -27,7 +28,12 @@ type panicFn func()
 // New makes new leveled logger. Accepts dbg flag turing on info about the caller and allowing DEBUG messages/
 // Two writers can be passed optionally - first for out and second for err
 func New(options ...Option) *Logger {
-	res := Logger{now: time.Now, fatal: func() { os.Exit(1) }}
+	res := Logger{
+		now:    time.Now,
+		fatal:  func() { os.Exit(1) },
+		stdout: os.Stdout,
+		stderr: os.Stderr,
+	}
 	for _, opt := range options {
 		opt(&res)
 	}
@@ -45,7 +51,7 @@ func (l *Logger) Logf(format string, args ...interface{}) {
 	bld.WriteString(l.now().Format("2006/01/02 15:04:05.000 "))
 	bld.WriteString(lv)
 
-	if l.dbg {
+	if l.dbg && l.callers {
 		if pc, file, line, ok := runtime.Caller(1); ok {
 			fnameElems := strings.Split(file, "/")
 			funcNameElems := strings.Split(runtime.FuncForPC(pc).Name(), "/")
@@ -127,4 +133,9 @@ func Err(w io.Writer) Option {
 // Debug turn on dbg mode
 func Debug(l *Logger) {
 	l.dbg = true
+}
+
+// Caller adds caller info with func, file, and line number
+func Caller(l *Logger) {
+	l.callers = true
 }

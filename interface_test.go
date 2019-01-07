@@ -8,6 +8,7 @@ import (
 	"os"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -41,4 +42,17 @@ func TestNoOp(t *testing.T) {
 
 	NoOp.Logf("blah %s %d something", "str", 123)
 	assert.Equal(t, "", buff.String())
+}
+
+func TestDefault(t *testing.T) {
+	buff := bytes.NewBuffer([]byte{})
+	def.stdout = buff
+	def.now = func() time.Time { return time.Date(2018, 1, 7, 13, 2, 34, 0, time.Local) }
+	defer func() {
+		def.stdout = os.Stdout
+		def.now = time.Now
+	}()
+
+	Printf("[DEBUG] something 123 %s", "xyz")
+	assert.Equal(t, "2018/01/07 13:02:34.000 DEBUG something 123 xyz\n", buff.String())
 }

@@ -2,6 +2,8 @@ package lgr
 
 import stdlog "log"
 
+var def = New(Debug) // default logger allow DEBUG but doesn't add caller info
+
 // L defines minimal interface used to log things
 type L interface {
 	Logf(format string, args ...interface{})
@@ -16,10 +18,10 @@ func (f Func) Logf(format string, args ...interface{}) { f(format, args...) }
 // NoOp logger
 var NoOp = Func(func(format string, args ...interface{}) {})
 
-// Std logger
+// Std logger sends to std default logger directly
 var Std = Func(func(format string, args ...interface{}) { stdlog.Printf(format, args...) })
 
 // Printf simplifies replacement of std logger
 func Printf(format string, args ...interface{}) {
-	Std.Logf(format, args...)
+	def.Logf(format, args...)
 }
