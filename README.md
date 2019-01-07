@@ -1,4 +1,4 @@
-# lgr - simple logger with basic levels
+# lgr - simple logger with basic levels [![Build Status](https://travis-ci.org/go-pkgz/lgr.svg?branch=master)](https://travis-ci.org/go-pkgz/lgr) [![Coverage Status](https://coveralls.io/repos/github/go-pkgz/lgr/badge.svg?branch=master)](https://coveralls.io/github/go-pkgz/lgr?branch=master)
 
 ## install
 
