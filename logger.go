@@ -14,13 +14,14 @@ var levels = []string{"DEBUG", "INFO", "WARN", "ERROR", "PANIC", "FATAL"}
 
 // Logger provided simple logger with basic support of levels. Thread safe
 type Logger struct {
-	stdout, stderr io.Writer
-	dbg            bool
-	lock           sync.Mutex
-	callers        bool
-	now            nowFn
-	fatal          panicFn
-	skipCallers    int
+	stdout, stderr         io.Writer
+	dbg                    bool
+	lock                   sync.Mutex
+	callerFile, callerFunc bool
+	now                    nowFn
+	fatal                  panicFn
+	skipCallers            int
+	levelBraces            bool
 }
 
 type nowFn func() time.Time
@@ -53,12 +54,23 @@ func (l *Logger) Logf(format string, args ...interface{}) {
 	bld.WriteString(l.now().Format("2006/01/02 15:04:05.000 "))
 	bld.WriteString(lv)
 
-	if l.dbg && l.callers {
+	if l.dbg && (l.callerFile || l.callerFunc) {
 		if pc, file, line, ok := runtime.Caller(l.skipCallers); ok {
-			fnameElems := strings.Split(file, "/")
-			funcNameElems := strings.Split(runtime.FuncForPC(pc).Name(), "/")
-			srcFileInfo := fmt.Sprintf("{%s:%d %s} ", strings.Join(fnameElems[len(fnameElems)-2:], "/"),
-				line, funcNameElems[len(funcNameElems)-1])
+
+			funcName := ""
+			if l.callerFunc {
+				funcNameElems := strings.Split(runtime.FuncForPC(pc).Name(), "/")
+				funcName = funcNameElems[len(funcNameElems)-1]
+			}
+			fileInfo := ""
+			if l.callerFile {
+				fnameElems := strings.Split(file, "/")
+				fileInfo = fmt.Sprintf("%s:%d", strings.Join(fnameElems[len(fnameElems)-2:], "/"), line)
+				if l.callerFunc {
+					fileInfo += " "
+				}
+			}
+			srcFileInfo := fmt.Sprintf("{%s%s} ", fileInfo, funcName)
 			bld.WriteString(srcFileInfo)
 		}
 	}
@@ -86,19 +98,27 @@ func (l *Logger) Logf(format string, args ...interface{}) {
 }
 
 func (l *Logger) extractLevel(line string) (level, msg string) {
+
+	brace := func(b string) string {
+		if l.levelBraces {
+			return b
+		}
+		return ""
+	}
+
 	spaces := " "
 	for _, lv := range levels {
 		if strings.HasPrefix(line, lv) {
 			if len(lv) == 4 {
 				spaces = "  "
 			}
-			return lv + spaces, line[len(lv)+1:]
+			return brace("[") + lv + brace("]") + spaces, line[len(lv)+1:]
 		}
 		if strings.HasPrefix(line, "["+lv+"]") {
 			if len(lv) == 4 {
 				spaces = "  "
 			}
-			return lv + spaces, line[len(lv)+3:]
+			return brace("[") + lv + brace("]") + spaces, line[len(lv)+3:]
 		}
 	}
 	return "", line
@@ -137,7 +157,17 @@ func Debug(l *Logger) {
 	l.dbg = true
 }
 
-// Caller adds caller info with func, file, and line number
-func Caller(l *Logger) {
-	l.callers = true
+// CallerFile adds caller info with file, and line number
+func CallerFile(l *Logger) {
+	l.callerFile = true
+}
+
+// CallerFunc adds caller info with function name
+func CallerFunc(l *Logger) {
+	l.callerFunc = true
+}
+
+// LevelBraces adds [] to level
+func LevelBraces(l *Logger) {
+	l.levelBraces = true
 }

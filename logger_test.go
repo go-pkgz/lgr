@@ -69,7 +69,7 @@ func TestLoggerWithDbg(t *testing.T) {
 	}
 
 	rout, rerr := bytes.NewBuffer([]byte{}), bytes.NewBuffer([]byte{})
-	l := New(Debug, Caller, Out(rout), Err(rerr))
+	l := New(Debug, CallerFile, CallerFunc, Out(rout), Err(rerr))
 	l.now = func() time.Time { return time.Date(2018, 1, 7, 13, 2, 34, 0, time.Local) }
 
 	for i, tt := range tbl {
@@ -89,18 +89,40 @@ func TestLoggerWithDbg(t *testing.T) {
 	l.Logf("[DEBUG] something 123 %s", "err")
 	assert.Equal(t, "2018/01/07 13:02:34.000 DEBUG something 123 err\n", rout.String())
 	assert.Equal(t, "", rerr.String())
+
+	l = New(Debug, Out(rout), Err(rerr), CallerFile) // caller file only
+	l.now = func() time.Time { return time.Date(2018, 1, 7, 13, 2, 34, 0, time.Local) }
+	rout.Reset()
+	rerr.Reset()
+	l.Logf("[DEBUG] something 123 %s", "err")
+	assert.Equal(t, "2018/01/07 13:02:34.000 DEBUG {lgr/logger_test.go:97} something 123 err\n", rout.String())
+
+	l = New(Debug, Out(rout), Err(rerr), CallerFunc) // caller func only
+	l.now = func() time.Time { return time.Date(2018, 1, 7, 13, 2, 34, 0, time.Local) }
+	rout.Reset()
+	rerr.Reset()
+	l.Logf("[DEBUG] something 123 %s", "err")
+	assert.Equal(t, "2018/01/07 13:02:34.000 DEBUG {lgr.TestLoggerWithDbg} something 123 err\n", rout.String())
+}
+
+func TestLoggerWithLevelBraces(t *testing.T) {
+	rout, rerr := bytes.NewBuffer([]byte{}), bytes.NewBuffer([]byte{})
+	l := New(Debug, Out(rout), Err(rerr), LevelBraces)
+	l.now = func() time.Time { return time.Date(2018, 1, 7, 13, 2, 34, 0, time.Local) }
+	l.Logf("[DEBUG] something 123 %s", "err")
+	assert.Equal(t, "2018/01/07 13:02:34.000 [DEBUG] something 123 err\n", rout.String())
 }
 
 func TestLoggerWithPanic(t *testing.T) {
 	fatalCalls := 0
 	rout, rerr := bytes.NewBuffer([]byte{}), bytes.NewBuffer([]byte{})
-	l := New(Debug, Caller, Out(rout), Err(rerr))
+	l := New(Debug, CallerFunc, Out(rout), Err(rerr))
 	l.now = func() time.Time { return time.Date(2018, 1, 7, 13, 2, 34, 0, time.Local) }
 	l.fatal = func() { fatalCalls++ }
 
 	l.Logf("[PANIC] oh my, panic now! %v", errors.New("bad thing happened"))
 	assert.Equal(t, 1, fatalCalls)
-	assert.Equal(t, "2018/01/07 13:02:34.000 PANIC {lgr/logger_test.go:101 lgr.TestLoggerWithPanic} oh my, panic now! bad thing happened\n", rout.String())
+	assert.Equal(t, "2018/01/07 13:02:34.000 PANIC {lgr.TestLoggerWithPanic} oh my, panic now! bad thing happened\n", rout.String())
 
 	t.Logf(rerr.String())
 	assert.True(t, strings.HasPrefix(rerr.String(), "2018/01/07 13:02:34.000 PANIC"))
@@ -142,7 +164,7 @@ func BenchmarkNoDbg(b *testing.B) {
 func BenchmarkWithDbg(b *testing.B) {
 
 	rout, rerr := bytes.NewBuffer([]byte{}), bytes.NewBuffer([]byte{})
-	l := New(Debug, Caller, Out(rout), Err(rerr))
+	l := New(Debug, CallerFile, CallerFunc, Out(rout), Err(rerr))
 	l.now = func() time.Time { return time.Date(2018, 1, 7, 13, 2, 34, 0, time.Local) }
 
 	e := errors.New("some error")
