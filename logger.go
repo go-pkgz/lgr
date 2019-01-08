@@ -50,6 +50,9 @@ func New(options ...Option) *Logger {
 func (l *Logger) Logf(format string, args ...interface{}) {
 
 	lv, msg := l.extractLevel(fmt.Sprintf(format, args...))
+	if lv == "DEBUG " && !l.dbg {
+		return
+	}
 	var bld strings.Builder
 	bld.WriteString(l.now().Format("2006/01/02 15:04:05.000 "))
 	bld.WriteString(lv)
@@ -75,9 +78,6 @@ func (l *Logger) Logf(format string, args ...interface{}) {
 		}
 	}
 
-	if lv == "DEBUG " && !l.dbg {
-		return
-	}
 	bld.WriteString(msg)  //nolint
 	bld.WriteString("\n") //nolint
 
