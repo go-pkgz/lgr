@@ -22,6 +22,7 @@ type Logger struct {
 	fatal                  panicFn
 	skipCallers            int
 	levelBraces            bool
+	msec                   bool
 }
 
 type nowFn func() time.Time
@@ -49,12 +50,25 @@ func New(options ...Option) *Logger {
 // FATAL adds runtime stack and os.exit(1), like panic.
 func (l *Logger) Logf(format string, args ...interface{}) {
 
+	// format timestamp with or without msecs
+	ts := func() (res string) {
+		if l.msec {
+			return l.now().Format("2006/01/02 15:04:05.000 ")
+		}
+		return l.now().Format("2006/01/02 15:04:05 ")
+	}
+
 	lv, msg := l.extractLevel(fmt.Sprintf(format, args...))
 	if lv == "DEBUG " && !l.dbg {
 		return
 	}
 	var bld strings.Builder
-	bld.WriteString(l.now().Format("2006/01/02 15:04:05.000 "))
+
+	if l.msec {
+
+	}
+
+	bld.WriteString(ts())
 	bld.WriteString(lv)
 
 	if l.dbg && (l.callerFile || l.callerFunc) {
@@ -170,4 +184,9 @@ func CallerFunc(l *Logger) {
 // LevelBraces adds [] to level
 func LevelBraces(l *Logger) {
 	l.levelBraces = true
+}
+
+// Msec adds .msec to timestamp
+func Msec(l *Logger) {
+	l.msec = true
 }

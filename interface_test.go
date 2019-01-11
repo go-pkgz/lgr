@@ -54,7 +54,7 @@ func TestDefault(t *testing.T) {
 	}()
 
 	Printf("[INFO] something 123 %s", "xyz")
-	assert.Equal(t, "2018/01/07 13:02:34.000 INFO  something 123 xyz\n", buff.String())
+	assert.Equal(t, "2018/01/07 13:02:34 INFO  something 123 xyz\n", buff.String())
 
 	buff.Reset()
 	Printf("[DEBUG] something 123 %s", "xyz")
@@ -62,13 +62,13 @@ func TestDefault(t *testing.T) {
 
 	buff.Reset()
 	Print("[WARN] something 123")
-	assert.Equal(t, "2018/01/07 13:02:34.000 WARN  something 123\n", buff.String())
+	assert.Equal(t, "2018/01/07 13:02:34 WARN  something 123\n", buff.String())
 }
 
 func TestDefaultWithSetup(t *testing.T) {
 	buff := bytes.NewBuffer([]byte{})
-	Setup(Out(buff), Debug, CallerFile, CallerFunc)
+	Setup(Out(buff), Debug, CallerFile, CallerFunc, Msec, LevelBraces)
 	def.now = func() time.Time { return time.Date(2018, 1, 7, 13, 2, 34, 0, time.Local) }
 	Printf("[INFO] something 123 %s", "xyz")
-	assert.Equal(t, "2018/01/07 13:02:34.000 INFO  {lgr/interface_test.go:72 lgr.TestDefaultWithSetup} something 123 xyz\n", buff.String())
+	assert.Equal(t, "2018/01/07 13:02:34.000 [INFO]  {lgr/interface_test.go:72 lgr.TestDefaultWithSetup} something 123 xyz\n", buff.String())
 }
