@@ -63,11 +63,6 @@ func (l *Logger) Logf(format string, args ...interface{}) {
 		return
 	}
 	var bld strings.Builder
-
-	if l.msec {
-
-	}
-
 	bld.WriteString(ts())
 	bld.WriteString(lv)
 
