@@ -135,6 +135,25 @@ func TestLoggerWithPanic(t *testing.T) {
 	assert.True(t, strings.HasPrefix(rerr.String(), "2018/01/07 13:02:34 PANIC"))
 	assert.True(t, strings.Contains(rerr.String(), "github.com/go-pkgz/lgr.getDump"))
 	assert.True(t, strings.Contains(rerr.String(), "go-pkgz/lgr/logger.go:"))
+
+	rout.Reset()
+	rerr.Reset()
+	l.Logf("[FATAL] oh my, panic now! %v", errors.New("bad thing happened"))
+	assert.Equal(t, 2, fatalCalls)
+	assert.Equal(t, "2018/01/07 13:02:34 FATAL {lgr.TestLoggerWithPanic} oh my, panic now! bad thing happened\n", rout.String())
+
+	rout.Reset()
+	rerr.Reset()
+	fatalCalls = 0
+	l = New(Out(rout), Err(rerr))
+	l.now = func() time.Time { return time.Date(2018, 1, 7, 13, 2, 34, 0, time.Local) }
+	l.fatal = func() { fatalCalls++ }
+	l.Logf("[PANIC] oh my, panic now! %v", errors.New("bad thing happened"))
+	assert.Equal(t, 1, fatalCalls)
+	assert.Equal(t, "2018/01/07 13:02:34 PANIC oh my, panic now! bad thing happened\n", rout.String())
+	assert.True(t, strings.HasPrefix(rerr.String(), "2018/01/07 13:02:34 PANIC"))
+	assert.True(t, strings.Contains(rerr.String(), "github.com/go-pkgz/lgr.getDump"))
+	assert.True(t, strings.Contains(rerr.String(), "go-pkgz/lgr/logger.go:"))
 }
 
 func TestLoggerConcurrent(t *testing.T) {
@@ -157,7 +176,6 @@ func TestLoggerConcurrent(t *testing.T) {
 }
 
 func BenchmarkNoDbg(b *testing.B) {
-
 	rout, rerr := bytes.NewBuffer([]byte{}), bytes.NewBuffer([]byte{})
 	l := New(Out(rout), Err(rerr))
 	l.now = func() time.Time { return time.Date(2018, 1, 7, 13, 2, 34, 0, time.Local) }
@@ -169,7 +187,6 @@ func BenchmarkNoDbg(b *testing.B) {
 }
 
 func BenchmarkWithDbg(b *testing.B) {
-
 	rout, rerr := bytes.NewBuffer([]byte{}), bytes.NewBuffer([]byte{})
 	l := New(Debug, CallerFile, CallerFunc, Out(rout), Err(rerr))
 	l.now = func() time.Time { return time.Date(2018, 1, 7, 13, 2, 34, 0, time.Local) }
