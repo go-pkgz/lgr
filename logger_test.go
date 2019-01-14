@@ -18,12 +18,12 @@ func TestLoggerNoDbg(t *testing.T) {
 		args       []interface{}
 		rout, rerr string
 	}{
-		{"", []interface{}{}, "2018/01/07 13:02:34.000 \n", ""},
+		{"", []interface{}{}, "2018/01/07 13:02:34.000 INFO  \n", ""},
 		{"DEBUG something 123 %s", []interface{}{"aaa"}, "", ""},
 		{"[DEBUG] something 123 %s", []interface{}{"aaa"}, "", ""},
 		{"INFO something 123 %s", []interface{}{"aaa"}, "2018/01/07 13:02:34.000 INFO  something 123 aaa\n", ""},
 		{"[INFO] something 123 %s", []interface{}{"aaa"}, "2018/01/07 13:02:34.000 INFO  something 123 aaa\n", ""},
-		{"blah something 123 %s", []interface{}{"aaa"}, "2018/01/07 13:02:34.000 blah something 123 aaa\n", ""},
+		{"blah something 123 %s", []interface{}{"aaa"}, "2018/01/07 13:02:34.000 INFO  blah something 123 aaa\n", ""},
 		{"WARN something 123 %s", []interface{}{"aaa"}, "2018/01/07 13:02:34.000 WARN  something 123 aaa\n", ""},
 		{"ERROR something 123 %s", []interface{}{"aaa"}, "2018/01/07 13:02:34.000 ERROR something 123 aaa\n",
 			"2018/01/07 13:02:34.000 ERROR something 123 aaa\n"},
@@ -50,7 +50,7 @@ func TestLoggerWithDbg(t *testing.T) {
 		rout, rerr string
 	}{
 		{"", []interface{}{},
-			"2018/01/07 13:02:34.123 {lgr/logger_test.go:79 lgr.TestLoggerWithDbg.func2} \n", ""},
+			"2018/01/07 13:02:34.123 INFO  {lgr/logger_test.go:79 lgr.TestLoggerWithDbg.func2} \n", ""},
 		{"DEBUG something 123 %s", []interface{}{"aaa"},
 			"2018/01/07 13:02:34.123 DEBUG {lgr/logger_test.go:79 lgr.TestLoggerWithDbg.func2} something 123 aaa\n", ""},
 		{"[DEBUG] something 123 %s", []interface{}{"aaa"},
@@ -60,7 +60,7 @@ func TestLoggerWithDbg(t *testing.T) {
 		{"[INFO] something 123 %s", []interface{}{"aaa"},
 			"2018/01/07 13:02:34.123 INFO  {lgr/logger_test.go:79 lgr.TestLoggerWithDbg.func2} something 123 aaa\n", ""},
 		{"blah something 123 %s", []interface{}{"aaa"},
-			"2018/01/07 13:02:34.123 {lgr/logger_test.go:79 lgr.TestLoggerWithDbg.func2} blah something 123 aaa\n", ""},
+			"2018/01/07 13:02:34.123 INFO  {lgr/logger_test.go:79 lgr.TestLoggerWithDbg.func2} blah something 123 aaa\n", ""},
 		{"WARN something 123 %s", []interface{}{"aaa"},
 			"2018/01/07 13:02:34.123 WARN  {lgr/logger_test.go:79 lgr.TestLoggerWithDbg.func2} something 123 aaa\n", ""},
 		{"ERROR something 123 %s", []interface{}{"aaa"},
@@ -118,6 +118,10 @@ func TestLoggerWithLevelBraces(t *testing.T) {
 	l.now = func() time.Time { return time.Date(2018, 1, 7, 13, 2, 34, 123000000, time.Local) }
 	l.Logf("[DEBUG] something 123 %s", "err")
 	assert.Equal(t, "2018/01/07 13:02:34.123 [DEBUG] something 123 err\n", rout.String())
+
+	rout.Reset()
+	l.Logf("something 123 %s", "err")
+	assert.Equal(t, "2018/01/07 13:02:34.123 [INFO]  something 123 err\n", rout.String())
 }
 
 func TestLoggerWithPanic(t *testing.T) {
