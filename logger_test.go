@@ -112,6 +112,28 @@ func TestLoggerWithDbg(t *testing.T) {
 	assert.Equal(t, "2018/01/07 13:02:34 DEBUG {lgr.TestLoggerWithDbg} something 123 err\n", rout.String())
 }
 
+func TestLoggerWithPkg(t *testing.T) {
+	rout, rerr := bytes.NewBuffer([]byte{}), bytes.NewBuffer([]byte{})
+	l := New(Debug, Out(rout), Err(rerr), CallerPkg, Msec)
+	l.now = func() time.Time { return time.Date(2018, 1, 7, 13, 2, 34, 123000000, time.Local) }
+	l.Logf("[DEBUG] something 123 %s", "err")
+	assert.Equal(t, "2018/01/07 13:02:34.123 DEBUG {lgr} something 123 err\n", rout.String())
+
+	l = New(Debug, Out(rout), Err(rerr), CallerPkg, CallerFile, Msec)
+	l.now = func() time.Time { return time.Date(2018, 1, 7, 13, 2, 34, 123000000, time.Local) }
+	rout.Reset()
+	rerr.Reset()
+	l.Logf("[DEBUG] something 123 %s", "err")
+	assert.Equal(t, "2018/01/07 13:02:34.123 DEBUG {lgr/logger_test.go:126} something 123 err\n", rout.String())
+
+	l = New(Debug, Out(rout), Err(rerr), CallerPkg, CallerFunc, Msec)
+	l.now = func() time.Time { return time.Date(2018, 1, 7, 13, 2, 34, 123000000, time.Local) }
+	rout.Reset()
+	rerr.Reset()
+	l.Logf("[DEBUG] something 123 %s", "err")
+	assert.Equal(t, "2018/01/07 13:02:34.123 DEBUG {lgr.TestLoggerWithPkg} something 123 err\n", rout.String())
+}
+
 func TestLoggerWithLevelBraces(t *testing.T) {
 	rout, rerr := bytes.NewBuffer([]byte{}), bytes.NewBuffer([]byte{})
 	l := New(Debug, Out(rout), Err(rerr), LevelBraces, Msec)
