@@ -2,7 +2,7 @@
 
 ## install
 
-`go get github/go-pkgz/lgr`
+`go get github.com/go-pkgz/lgr`
 
 ## usage
 
