@@ -149,6 +149,28 @@ func TestLoggerIgnoreCallers(t *testing.T) {
 	assert.Equal(t, "2018/01/07 13:02:34.123 DEBUG {lgr/logger_test.go:148 lgr.TestLoggerIgnoreCallers} something 123 err\n", rout.String())
 }
 
+func TestLoggerWithCallerSkip(t *testing.T) {
+	rout, rerr := bytes.NewBuffer([]byte{}), bytes.NewBuffer([]byte{})
+	l := New(Debug, Out(rout), Err(rerr), CallerFunc, Msec, CallerSkip(2))
+	l.now = func() time.Time { return time.Date(2018, 1, 7, 13, 2, 34, 123000000, time.Local) }
+	l.Logf("[DEBUG] something 123 %s", "err")
+	assert.Equal(t, "2018/01/07 13:02:34.123 DEBUG {testing.tRunner} something 123 err\n", rout.String())
+
+	rout.Reset()
+	rerr.Reset()
+	l = New(Debug, Out(rout), Err(rerr), CallerFile, CallerFunc, Msec, CallerSkip(0))
+	l.now = func() time.Time { return time.Date(2018, 1, 7, 13, 2, 34, 123000000, time.Local) }
+	l.Logf("[DEBUG] something 123 %s", "err")
+	assert.Equal(t, "2018/01/07 13:02:34.123 DEBUG {lgr/logger.go:76 lgr.(*Logger).Logf} something 123 err\n", rout.String())
+
+	rout.Reset()
+	rerr.Reset()
+	l = New(Debug, Out(rout), Err(rerr), CallerPkg, CallerSkip(2))
+	l.now = func() time.Time { return time.Date(2018, 1, 7, 13, 2, 34, 123000000, time.Local) }
+	l.Logf("[DEBUG] something 123 %s", "err")
+	assert.Equal(t, "2018/01/07 13:02:34 DEBUG {testing} something 123 err\n", rout.String())
+}
+
 func TestLoggerWithLevelBraces(t *testing.T) {
 	rout, rerr := bytes.NewBuffer([]byte{}), bytes.NewBuffer([]byte{})
 	l := New(Debug, Out(rout), Err(rerr), LevelBraces, Msec)
