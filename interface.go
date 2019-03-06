@@ -43,7 +43,7 @@ func Fatalf(format string, args ...interface{}) {
 // Setup default logger with options
 func Setup(opts ...Option) {
 	def = New(opts...)
-	def.callerSkip = 2
+	def.skipCallers = 2
 }
 
 // Default returns pre-constructed def logger (debug off, callers disabled)
