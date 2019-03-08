@@ -21,13 +21,11 @@ type Logger struct {
 	callerFile        bool
 	callerFunc        bool
 	callerPkg         bool
-	callerSkip        int
 	ignoredPkgCallers []string
-
-	now         nowFn
-	fatal       panicFn
-	levelBraces bool
-	msec        bool
+	now               nowFn
+	fatal             panicFn
+	levelBraces       bool
+	msec              bool
 }
 
 type nowFn func() time.Time
@@ -37,11 +35,10 @@ type panicFn func()
 // Two writers can be passed optionally - first for out and second for err
 func New(options ...Option) *Logger {
 	res := Logger{
-		now:        time.Now,
-		fatal:      func() { os.Exit(1) },
-		stdout:     os.Stdout,
-		stderr:     os.Stderr,
-		callerSkip: 1,
+		now:    time.Now,
+		fatal:  func() { os.Exit(1) },
+		stdout: os.Stdout,
+		stderr: os.Stderr,
 	}
 	for _, opt := range options {
 		opt(&res)
@@ -54,6 +51,11 @@ func New(options ...Option) *Logger {
 // ERROR and FATAL also send the same line to err writer.
 // FATAL adds runtime stack and os.exit(1), like panic.
 func (l *Logger) Logf(format string, args ...interface{}) {
+	// to align call depth between (*Logger).Logf() and, for example, Printf()
+	l.logf(format, args...)
+}
+
+func (l *Logger) logf(format string, args ...interface{}) {
 
 	// format timestamp with or without msecs
 	ts := func() (res string) {
@@ -73,7 +75,7 @@ func (l *Logger) Logf(format string, args ...interface{}) {
 	bld.WriteString(" ")
 
 	if l.callerFile || l.callerFunc || l.callerPkg {
-		if pc, file, line, ok := runtime.Caller(l.callerSkip); ok {
+		if pc, file, line, ok := runtime.Caller(2); ok {
 
 			funcName, fileInfo := "", ""
 
@@ -215,14 +217,6 @@ func CallerPkg(l *Logger) {
 func CallerIgnore(ignores ...string) Option {
 	return func(l *Logger) {
 		l.ignoredPkgCallers = ignores
-	}
-}
-
-// CallerSkip sets how many trace levels to skip.
-// by default this value is 1 , i.e. skip logger level only
-func CallerSkip(n int) Option {
-	return func(l *Logger) {
-		l.callerSkip = n
 	}
 }
 
