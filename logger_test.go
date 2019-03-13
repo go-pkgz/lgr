@@ -216,6 +216,23 @@ func TestLoggerConcurrent(t *testing.T) {
 	assert.Equal(t, "", rerr.String())
 }
 
+func TestCaller(t *testing.T) {
+	var l *Logger
+
+	filePath, line, funcName := l.caller(0)
+	assert.True(t, strings.HasSuffix(filePath, "go-pkgz/lgr/logger_test.go"), filePath)
+	assert.Equal(t, 222, line)
+	assert.Equal(t, funcName, "github.com/go-pkgz/lgr.TestCaller")
+
+	f := func() {
+		filePath, line, funcName = l.caller(1)
+	}
+	f()
+	assert.True(t, strings.HasSuffix(filePath, "go-pkgz/lgr/logger_test.go"), filePath)
+	assert.Equal(t, 230, line)
+	assert.Equal(t, funcName, "github.com/go-pkgz/lgr.TestCaller")
+}
+
 func BenchmarkNoDbg(b *testing.B) {
 	rout, rerr := bytes.NewBuffer([]byte{}), bytes.NewBuffer([]byte{})
 	l := New(Out(rout), Err(rerr))

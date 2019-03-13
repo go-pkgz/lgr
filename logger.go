@@ -74,34 +74,10 @@ func (l *Logger) logf(format string, args ...interface{}) {
 	bld.WriteString(l.formatLevel(lv))
 	bld.WriteString(" ")
 
-	if l.callerFile || l.callerFunc || l.callerPkg {
-		if pc, file, line, ok := runtime.Caller(2); ok {
-
-			funcName, fileInfo := "", ""
-
-			if l.callerFunc {
-				funcNameElems := strings.Split(runtime.FuncForPC(pc).Name(), "/")
-				funcName = funcNameElems[len(funcNameElems)-1]
-			}
-
-			if l.callerFile {
-				fnameElems := strings.Split(file, "/")
-				fileInfo = fmt.Sprintf("%s:%d", strings.Join(fnameElems[len(fnameElems)-2:], "/"), line)
-				if l.callerFunc {
-					fileInfo += " "
-				}
-			}
-			// callerPkg only if no other callers
-			if l.callerPkg && !l.callerFile && !l.callerFunc {
-				file = l.ignoreCaller(file)
-				_, fileInfo = path.Split(path.Dir(file))
-				if l.callerFunc {
-					fileInfo += " "
-				}
-			}
-			srcFileInfo := fmt.Sprintf("{%s%s} ", fileInfo, funcName)
-			bld.WriteString(srcFileInfo)
-		}
+	if caller := l.reportCaller(2); caller != "" {
+		bld.WriteString("{")
+		bld.WriteString(caller)
+		bld.WriteString("} ")
 	}
 
 	bld.WriteString(msg)  //nolint
@@ -122,6 +98,77 @@ func (l *Logger) logf(format string, args ...interface{}) {
 	}
 
 	l.lock.Unlock()
+}
+
+// calldepth 0 identifying the caller of reportCaller()
+func (l *Logger) reportCaller(calldepth int) string {
+	if !(l.callerFile || l.callerFunc || l.callerPkg) {
+		return ""
+	}
+
+	filePath, line, funcName := l.caller(calldepth + 1)
+
+	// callerPkg only if no other callers
+	if l.callerPkg && !l.callerFile && !l.callerFunc {
+		if filePath == "" {
+			return "???"
+		}
+		pkgInfo := l.ignoreCaller(filePath)
+		_, pkgInfo = path.Split(path.Dir(pkgInfo))
+		return pkgInfo
+	}
+
+	res := ""
+
+	if l.callerFile {
+		fileInfo := filePath
+		if pathElems := strings.Split(filePath, "/"); len(pathElems) > 2 {
+			fileInfo = strings.Join(pathElems[len(pathElems)-2:], "/")
+		}
+		if fileInfo == "" {
+			fileInfo = "???"
+		}
+		res += fmt.Sprintf("%s:%d", fileInfo, line)
+		if l.callerFunc {
+			res += " "
+		}
+	}
+
+	if l.callerFunc {
+		funcNameElems := strings.Split(funcName, "/")
+		funcInfo := funcNameElems[len(funcNameElems)-1]
+		if funcInfo == "" {
+			funcInfo = "???"
+		}
+		res += funcInfo
+	}
+
+	return res
+}
+
+// caller is a modified version of runtime.Caller()
+// calldepth 0 identifying the caller of caller()
+// file looks like:
+//   /go/src/github.com/go-pkgz/lgr/logger.go
+// file is an empty string if not known.
+// funcName looks like:
+//   main.Test
+//   foo/bar.Test
+//   foo/bar.Test.func1
+//   foo/bar.(*Bar).Test
+//   foo/bar.glob..func1
+// funcName is an empty string if not known.
+// line is a zero if not known.
+func (l *Logger) caller(calldepth int) (file string, line int, funcName string) {
+	pcs := make([]uintptr, 1)
+	n := runtime.Callers(calldepth+2, pcs)
+	if n != 1 {
+		return "", 0, ""
+	}
+
+	frame, _ := runtime.CallersFrames(pcs).Next()
+
+	return frame.File, frame.Line, frame.Function
 }
 
 func (l *Logger) ignoreCaller(p string) string {
