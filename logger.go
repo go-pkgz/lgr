@@ -107,12 +107,12 @@ func (l *Logger) reportCaller(calldepth int) string {
 	}
 
 	filePath, line, funcName := l.caller(calldepth + 1)
+	if (filePath == "") || (line <= 0) || (funcName == "") {
+		return "???"
+	}
 
 	// callerPkg only if no other callers
 	if l.callerPkg && !l.callerFile && !l.callerFunc {
-		if filePath == "" {
-			return "???"
-		}
 		pkgInfo := l.ignoreCaller(filePath)
 		_, pkgInfo = path.Split(path.Dir(pkgInfo))
 		return pkgInfo
@@ -125,9 +125,6 @@ func (l *Logger) reportCaller(calldepth int) string {
 		if pathElems := strings.Split(filePath, "/"); len(pathElems) > 2 {
 			fileInfo = strings.Join(pathElems[len(pathElems)-2:], "/")
 		}
-		if fileInfo == "" {
-			fileInfo = "???"
-		}
 		res += fmt.Sprintf("%s:%d", fileInfo, line)
 		if l.callerFunc {
 			res += " "
@@ -137,9 +134,6 @@ func (l *Logger) reportCaller(calldepth int) string {
 	if l.callerFunc {
 		funcNameElems := strings.Split(funcName, "/")
 		funcInfo := funcNameElems[len(funcNameElems)-1]
-		if funcInfo == "" {
-			funcInfo = "???"
-		}
 		res += funcInfo
 	}
 
