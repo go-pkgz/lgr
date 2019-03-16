@@ -51,11 +51,13 @@ func New(options ...Option) *Logger {
 // ERROR and FATAL also send the same line to err writer.
 // FATAL adds runtime stack and os.exit(1), like panic.
 func (l *Logger) Logf(format string, args ...interface{}) {
-	// to align call depth between (*Logger).Logf() and, for example, Printf()
-	l.logf(format, args...)
+	l.logf(1, format, args...)
 }
 
-func (l *Logger) logf(format string, args ...interface{}) {
+// Caller info to log is obtained for the caller located calldepth
+// deeper in the stack then the caller of the method.
+// calldepth 0 identifying the caller of the method.
+func (l *Logger) logf(calldepth int, format string, args ...interface{}) {
 
 	// format timestamp with or without msecs
 	ts := func() (res string) {
@@ -74,9 +76,9 @@ func (l *Logger) logf(format string, args ...interface{}) {
 	bld.WriteString(l.formatLevel(lv))
 	bld.WriteString(" ")
 
-	if caller := l.reportCaller(2); caller != "" {
+	if callerInfo := l.reportCaller(calldepth + 1); callerInfo != "" {
 		bld.WriteString("{")
-		bld.WriteString(caller)
+		bld.WriteString(callerInfo)
 		bld.WriteString("} ")
 	}
 
@@ -215,6 +217,27 @@ func getDump() []byte {
 		length = maxSize
 	}
 	return stacktrace[:length]
+}
+
+// ForDepth returns this logger wrapper configured to log callers
+// located calldepth deeper in the stack then the caller of the
+// returned wrapper's Logf() method.
+// calldepth 0 identifying the caller of the Logf() method.
+func (l *Logger) ForDepth(calldepth int) L {
+	return deepLogger{l, calldepth}
+}
+
+// deepLogger is a Logger wrapper for logging callers located calldepth
+// deeper in the stack then the caller of the Logf() method.
+// calldepth 0 identifying the caller of the Logf() method.
+type deepLogger struct {
+	l         *Logger
+	calldepth int
+}
+
+// Logf implements L interface
+func (l deepLogger) Logf(format string, args ...interface{}) {
+	l.l.logf(l.calldepth+1, format, args...)
 }
 
 // Option func type

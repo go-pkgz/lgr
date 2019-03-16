@@ -26,17 +26,17 @@ var Std = Func(func(format string, args ...interface{}) { stdlog.Printf(format, 
 
 // Printf simplifies replacement of std logger
 func Printf(format string, args ...interface{}) {
-	def.logf(format, args...)
+	def.logf(1, format, args...)
 }
 
 // Print simplifies replacement of std logger
 func Print(line string) {
-	def.logf(line)
+	def.logf(1, line)
 }
 
 // Fatalf simplifies replacement of std logger
 func Fatalf(format string, args ...interface{}) {
-	def.logf(format, args...)
+	def.logf(1, format, args...)
 	os.Exit(1)
 }
 
@@ -47,3 +47,11 @@ func Setup(opts ...Option) {
 
 // Default returns pre-constructed def logger (debug off, callers disabled)
 func Default() L { return def }
+
+// DefaultForDepth returns default logger wrapper configured to log callers
+// located calldepth deeper in the stack then the caller of the returned
+// wrapper's Logf() method.
+// calldepth 0 identifying the caller of the Logf() method.
+func DefaultForDepth(calldepth int) L {
+	return def.ForDepth(calldepth)
+}

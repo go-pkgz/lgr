@@ -233,6 +233,23 @@ func TestCaller(t *testing.T) {
 	assert.Equal(t, funcName, "github.com/go-pkgz/lgr.TestCaller")
 }
 
+func TestLoggerForDepth(t *testing.T) {
+	rout, rerr := &bytes.Buffer{}, &bytes.Buffer{}
+	l := New(Out(rout), Err(rerr), CallerFile, CallerFunc, Msec)
+	l.now = func() time.Time { return time.Date(2018, 1, 7, 13, 2, 34, 123000000, time.Local) }
+
+	l.ForDepth(0).Logf("[ERROR] xxx")
+	assert.Equal(t, "2018/01/07 13:02:34.123 ERROR {lgr/logger_test.go:241 lgr.TestLoggerForDepth} xxx\n", rout.String())
+
+	rout.Reset()
+	rerr.Reset()
+	f := func() {
+		l.ForDepth(1).Logf("[ERROR] xxx")
+	}
+	f()
+	assert.Equal(t, "2018/01/07 13:02:34.123 ERROR {lgr/logger_test.go:249 lgr.TestLoggerForDepth} xxx\n", rout.String())
+}
+
 func BenchmarkNoDbg(b *testing.B) {
 	rout, rerr := bytes.NewBuffer([]byte{}), bytes.NewBuffer([]byte{})
 	l := New(Out(rout), Err(rerr))
