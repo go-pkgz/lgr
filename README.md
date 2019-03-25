@@ -50,15 +50,14 @@ _Without `lgr.Caller*` it will drop `{caller}` part_
 - `ERROR` sends messages to both out and err writers
 - `PANIC` and `FATAL` send messages to both out and err writers. In addition sends dump of callers and runtime info to err only, and calls `os.Exit(1)`.
 
-### adaptors
+### adaptor
 
-`lgr` logger can be converted to `io.Writer` or `*log.Logger`
+`lgr.L` interface can be converted to `*log.Logger`
 
-- `lgr.ToWriter(l lgr.L, level string) io.Writer` - makes io.Writer forwarding write ops to underlying `lgr.L`
 - `lgr.ToStdLogger(l lgr.L, level string) *log.Logger` - makes standard logger on top of `lgr.L`
 
-_`level` parameter is optional, if defined will enforce the level._    
-  
+_`level` parameter is optional, if defined it will enforce the level._
+
 ### global logger
 
 Users **should avoid** global logger and pass the concrete logger as a dependency. However, in some cases a global logger may be needed, for example migration from stdlib `log` to `lgr`. For such cases `log "github.com/go-pkgz/lgr"` can be imported instead of `log` package.
