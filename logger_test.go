@@ -134,19 +134,23 @@ func TestLoggerWithPkg(t *testing.T) {
 	assert.Equal(t, "2018/01/07 13:02:34.123 DEBUG {lgr.TestLoggerWithPkg} something 123 err\n", rout.String())
 }
 
+func ignoreMe(l *Logger) {
+	l.Logf("[DEBUG] something 123 %s", "err")
+}
+
 func TestLoggerIgnoreCallers(t *testing.T) {
 	rout, rerr := bytes.NewBuffer([]byte{}), bytes.NewBuffer([]byte{})
-	l := New(Debug, Out(rout), Err(rerr), CallerPkg, Msec, CallerIgnore("lgr"))
+	l := New(Debug, Out(rout), Err(rerr), CallerPkg, Msec, CallerIgnore("github.com/go-pkgz/lgr.ignoreMe"))
 	l.now = func() time.Time { return time.Date(2018, 1, 7, 13, 2, 34, 123000000, time.Local) }
-	l.Logf("[DEBUG] something 123 %s", "err")
-	assert.Equal(t, "2018/01/07 13:02:34.123 DEBUG {go-pkgz} something 123 err\n", rout.String())
+	ignoreMe(l)
+	assert.Equal(t, "2018/01/07 13:02:34.123 DEBUG {lgr} something 123 err\n", rout.String())
 
-	l = New(Debug, Out(rout), Err(rerr), CallerFile, CallerFunc, Msec, CallerIgnore("lgr"))
+	l = New(Debug, Out(rout), Err(rerr), CallerFile, CallerFunc, Msec, CallerIgnore("github.com/go-pkgz/lgr.ignoreMe"))
 	l.now = func() time.Time { return time.Date(2018, 1, 7, 13, 2, 34, 123000000, time.Local) }
 	rout.Reset()
 	rerr.Reset()
-	l.Logf("[DEBUG] something 123 %s", "err")
-	assert.Equal(t, "2018/01/07 13:02:34.123 DEBUG {lgr/logger_test.go:148 lgr.TestLoggerIgnoreCallers} something 123 err\n", rout.String())
+	ignoreMe(l)
+	assert.Equal(t, "2018/01/07 13:02:34.123 DEBUG {lgr/logger_test.go:152 lgr.TestLoggerIgnoreCallers} something 123 err\n", rout.String())
 }
 
 func TestLoggerWithLevelBraces(t *testing.T) {
@@ -217,19 +221,21 @@ func TestLoggerConcurrent(t *testing.T) {
 }
 
 func TestCaller(t *testing.T) {
-	var l *Logger
+	l := New()
 
-	filePath, line, funcName := l.caller(0)
+	filePath, line, funcName, ok := l.caller(0)
+	assert.True(t, ok)
 	assert.True(t, strings.HasSuffix(filePath, "go-pkgz/lgr/logger_test.go"), filePath)
-	assert.Equal(t, 222, line)
+	assert.Equal(t, 226, line)
 	assert.Equal(t, funcName, "github.com/go-pkgz/lgr.TestCaller")
 
 	f := func() {
-		filePath, line, funcName = l.caller(1)
+		filePath, line, funcName, ok = l.caller(1)
 	}
 	f()
+	assert.True(t, ok)
 	assert.True(t, strings.HasSuffix(filePath, "go-pkgz/lgr/logger_test.go"), filePath)
-	assert.Equal(t, 230, line)
+	assert.Equal(t, 235, line)
 	assert.Equal(t, funcName, "github.com/go-pkgz/lgr.TestCaller")
 }
 

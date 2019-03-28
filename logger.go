@@ -15,17 +15,17 @@ var levels = []string{"DEBUG", "INFO", "WARN", "ERROR", "PANIC", "FATAL"}
 
 // Logger provided simple logger with basic support of levels. Thread safe
 type Logger struct {
-	stdout, stderr    io.Writer
-	dbg               bool
-	lock              sync.Mutex
-	callerFile        bool
-	callerFunc        bool
-	callerPkg         bool
-	ignoredPkgCallers []string
-	now               nowFn
-	fatal             panicFn
-	levelBraces       bool
-	msec              bool
+	stdout, stderr io.Writer
+	dbg            bool
+	lock           sync.Mutex
+	callerFile     bool
+	callerFunc     bool
+	callerPkg      bool
+	ignoredCallers map[string]struct{}
+	now            nowFn
+	fatal          panicFn
+	levelBraces    bool
+	msec           bool
 }
 
 type nowFn func() time.Time
@@ -35,10 +35,11 @@ type panicFn func()
 // Two writers can be passed optionally - first for out and second for err
 func New(options ...Option) *Logger {
 	res := Logger{
-		now:    time.Now,
-		fatal:  func() { os.Exit(1) },
-		stdout: os.Stdout,
-		stderr: os.Stderr,
+		now:            time.Now,
+		fatal:          func() { os.Exit(1) },
+		stdout:         os.Stdout,
+		stderr:         os.Stderr,
+		ignoredCallers: make(map[string]struct{}),
 	}
 	for _, opt := range options {
 		opt(&res)
@@ -106,15 +107,14 @@ func (l *Logger) reportCaller(calldepth int) string {
 		return ""
 	}
 
-	filePath, line, funcName := l.caller(calldepth + 1)
-	if (filePath == "") || (line <= 0) || (funcName == "") {
-		return "???"
+	filePath, line, funcName, ok := l.caller(calldepth + 1)
+	if !ok {
+		return ""
 	}
 
 	// callerPkg only if no other callers
 	if l.callerPkg && !l.callerFile && !l.callerFunc {
-		pkgInfo := l.ignoreCaller(filePath)
-		_, pkgInfo = path.Split(path.Dir(pkgInfo))
+		_, pkgInfo := path.Split(path.Dir(filePath))
 		return pkgInfo
 	}
 
@@ -140,38 +140,51 @@ func (l *Logger) reportCaller(calldepth int) string {
 	return res
 }
 
-// caller is a modified version of runtime.Caller()
+// caller searches for the caller while skipping ignored functions.
+// calldepth is a starting call depth for the search.
 // calldepth 0 identifying the caller of caller()
 // file looks like:
 //   /go/src/github.com/go-pkgz/lgr/logger.go
-// file is an empty string if not known.
 // funcName looks like:
 //   main.Test
 //   foo/bar.Test
 //   foo/bar.Test.func1
 //   foo/bar.(*Bar).Test
 //   foo/bar.glob..func1
-// funcName is an empty string if not known.
-// line is a zero if not known.
-func (l *Logger) caller(calldepth int) (file string, line int, funcName string) {
-	pcs := make([]uintptr, 1)
-	n := runtime.Callers(calldepth+2, pcs)
-	if n != 1 {
-		return "", 0, ""
+// line is always > 0
+func (l *Logger) caller(calldepth int) (file string, line int, funcName string, ok bool) {
+
+	check := func(frame runtime.Frame) (string, int, string, bool) {
+		if frame.File == "" || frame.Line <= 0 || frame.Function == "" {
+			return "", 0, "", false
+		}
+		return frame.File, frame.Line, frame.Function, true
 	}
 
-	frame, _ := runtime.CallersFrames(pcs).Next()
+	calldepth += 2
 
-	return frame.File, frame.Line, frame.Function
-}
-
-func (l *Logger) ignoreCaller(p string) string {
-	for _, s := range l.ignoredPkgCallers {
-		if strings.Contains(p, "/"+s+"/") {
-			return strings.Replace(p, "/"+s, "", 1)
+	for i := 0; i < 10; i++ {
+		// len(pcs): we want the caller to be likely fetched by the first scan
+		//           while trying not to compromise performance a lot
+		var pcs [5]uintptr
+		n := runtime.Callers(calldepth, pcs[:])
+		if n < 1 {
+			return "", 0, "", false
+		}
+		frames := runtime.CallersFrames(pcs[:n])
+		for {
+			frame, more := frames.Next()
+			calldepth++
+			if _, present := l.ignoredCallers[frame.Function]; !present {
+				return check(frame)
+			}
+			if !more {
+				break
+			}
 		}
 	}
-	return p
+
+	return "", 0, "", false
 }
 
 func (l *Logger) formatLevel(lv string) string {
@@ -254,10 +267,21 @@ func CallerPkg(l *Logger) {
 	l.callerPkg = true
 }
 
-// CallerIgnore sets packages skipped from logging caller
+// CallerIgnore sets functions that must be skipped when searching for a caller.
+// Function names must be package path-qualified. Examples:
+//   "main.Test"
+//   "foo.Test"
+//   "foo/bar.Test"
+//   "foo/bar.Test.func1"
+//   "foo/bar.(*Bar).Test"
+// If the project is in the $GOPATH and uses vendoring but doesn't use modules
+// then to ignore a function in the "$GOPATH/foo/vendor/bar/" package:
+//   "foo/vendor/bar.Test"
 func CallerIgnore(ignores ...string) Option {
 	return func(l *Logger) {
-		l.ignoredPkgCallers = ignores
+		for _, f := range ignores {
+			l.ignoredCallers[f] = struct{}{}
+		}
 	}
 }
 
