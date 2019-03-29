@@ -23,6 +23,7 @@ func TestLoggerNoDbg(t *testing.T) {
 		{"[DEBUG] something 123 %s", []interface{}{"aaa"}, "", ""},
 		{"INFO something 123 %s", []interface{}{"aaa"}, "2018/01/07 13:02:34.000 INFO  something 123 aaa\n", ""},
 		{"[INFO] something 123 %s", []interface{}{"aaa"}, "2018/01/07 13:02:34.000 INFO  something 123 aaa\n", ""},
+		{"[INFO] something 123 %s", []interface{}{"aaa\n"}, "2018/01/07 13:02:34.000 INFO  something 123 aaa\n", ""},
 		{"blah something 123 %s", []interface{}{"aaa"}, "2018/01/07 13:02:34.000 INFO  blah something 123 aaa\n", ""},
 		{"WARN something 123 %s", []interface{}{"aaa"}, "2018/01/07 13:02:34.000 WARN  something 123 aaa\n", ""},
 		{"ERROR something 123 %s", []interface{}{"aaa"}, "2018/01/07 13:02:34.000 ERROR something 123 aaa\n",
@@ -71,7 +72,6 @@ func TestLoggerWithDbg(t *testing.T) {
 	rout, rerr := bytes.NewBuffer([]byte{}), bytes.NewBuffer([]byte{})
 	l := New(Debug, CallerFile, CallerFunc, Out(rout), Err(rerr), Msec)
 	l.now = func() time.Time { return time.Date(2018, 1, 7, 13, 2, 34, 123000000, time.Local) }
-
 	for i, tt := range tbl {
 		rout.Reset()
 		rerr.Reset()
@@ -134,19 +134,24 @@ func TestLoggerWithPkg(t *testing.T) {
 	assert.Equal(t, "2018/01/07 13:02:34.123 DEBUG {lgr.TestLoggerWithPkg} something 123 err\n", rout.String())
 }
 
-func TestLoggerIgnoreCallers(t *testing.T) {
+func TestLoggerWithCallerDepth(t *testing.T) {
 	rout, rerr := bytes.NewBuffer([]byte{}), bytes.NewBuffer([]byte{})
-	l := New(Debug, Out(rout), Err(rerr), CallerPkg, Msec, CallerIgnore("lgr"))
-	l.now = func() time.Time { return time.Date(2018, 1, 7, 13, 2, 34, 123000000, time.Local) }
-	l.Logf("[DEBUG] something 123 %s", "err")
-	assert.Equal(t, "2018/01/07 13:02:34.123 DEBUG {go-pkgz} something 123 err\n", rout.String())
+	l1 := New(Debug, Out(rout), Err(rerr), CallerPkg, CallerFile, CallerFunc, Msec, CallerDepth(1))
+	l1.now = func() time.Time { return time.Date(2018, 1, 7, 13, 2, 34, 123000000, time.Local) }
 
-	l = New(Debug, Out(rout), Err(rerr), CallerFile, CallerFunc, Msec, CallerIgnore("lgr"))
-	l.now = func() time.Time { return time.Date(2018, 1, 7, 13, 2, 34, 123000000, time.Local) }
+	f := func(l L) {
+		l.Logf("[DEBUG] something 123 %s", "err")
+	}
+	f(l1)
+
+	assert.Equal(t, "2018/01/07 13:02:34.123 DEBUG {lgr/logger_test.go:145 lgr.TestLoggerWithCallerDepth} something 123 err\n", rout.String())
+
 	rout.Reset()
 	rerr.Reset()
-	l.Logf("[DEBUG] something 123 %s", "err")
-	assert.Equal(t, "2018/01/07 13:02:34.123 DEBUG {lgr/logger_test.go:148 lgr.TestLoggerIgnoreCallers} something 123 err\n", rout.String())
+	l2 := New(Debug, Out(rout), Err(rerr), CallerPkg, CallerFile, CallerFunc, Msec, CallerDepth(0))
+	l2.now = func() time.Time { return time.Date(2018, 1, 7, 13, 2, 34, 123000000, time.Local) }
+	f(l2)
+	assert.Equal(t, "2018/01/07 13:02:34.123 DEBUG {lgr/logger_test.go:143 lgr.TestLoggerWithCallerDepth.func2} something 123 err\n", rout.String())
 }
 
 func TestLoggerWithLevelBraces(t *testing.T) {
@@ -214,23 +219,6 @@ func TestLoggerConcurrent(t *testing.T) {
 
 	assert.Equal(t, 1001, len(strings.Split(rout.String(), "\n")))
 	assert.Equal(t, "", rerr.String())
-}
-
-func TestCaller(t *testing.T) {
-	var l *Logger
-
-	filePath, line, funcName := l.caller(0)
-	assert.True(t, strings.HasSuffix(filePath, "go-pkgz/lgr/logger_test.go"), filePath)
-	assert.Equal(t, 222, line)
-	assert.Equal(t, funcName, "github.com/go-pkgz/lgr.TestCaller")
-
-	f := func() {
-		filePath, line, funcName = l.caller(1)
-	}
-	f()
-	assert.True(t, strings.HasSuffix(filePath, "go-pkgz/lgr/logger_test.go"), filePath)
-	assert.Equal(t, 230, line)
-	assert.Equal(t, funcName, "github.com/go-pkgz/lgr.TestCaller")
 }
 
 func BenchmarkNoDbg(b *testing.B) {

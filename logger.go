@@ -15,30 +15,35 @@ var levels = []string{"DEBUG", "INFO", "WARN", "ERROR", "PANIC", "FATAL"}
 
 // Logger provided simple logger with basic support of levels. Thread safe
 type Logger struct {
-	stdout, stderr    io.Writer
-	dbg               bool
-	lock              sync.Mutex
-	callerFile        bool
-	callerFunc        bool
-	callerPkg         bool
-	ignoredPkgCallers []string
-	now               nowFn
-	fatal             panicFn
-	levelBraces       bool
-	msec              bool
+	// set with Option calls
+	stdout, stderr io.Writer // destination writes for out and err
+	dbg            bool      // allows reporting for DEBUG level
+	callerFile     bool      // reports caller file, i.e. /go/src/github.com/go-pkgz/lgr/logger.go
+	callerFunc     bool      // reports caller function name, i.e. foo/bar.myFunc
+	callerPkg      bool      // reports caller package name
+	levelBraces    bool      // encloses level with [], i.e. [INFO]
+	callerDepth    int       // how many stack frames to skip
+
+	// internal use
+	now   nowFn
+	fatal panicFn
+	msec  bool
+	lock  sync.Mutex
 }
 
+// can be redefined internally for testing
 type nowFn func() time.Time
 type panicFn func()
 
-// New makes new leveled logger. Accepts dbg flag turing on info about the caller and allowing DEBUG messages/
+// New makes new leveled logger. Accepts dbg flag turing on info about the caller and allowing DEBUG messages.
 // Two writers can be passed optionally - first for out and second for err
 func New(options ...Option) *Logger {
 	res := Logger{
-		now:    time.Now,
-		fatal:  func() { os.Exit(1) },
-		stdout: os.Stdout,
-		stderr: os.Stderr,
+		now:         time.Now,
+		fatal:       func() { os.Exit(1) },
+		stdout:      os.Stdout,
+		stderr:      os.Stderr,
+		callerDepth: 0,
 	}
 	for _, opt := range options {
 		opt(&res)
@@ -74,27 +79,29 @@ func (l *Logger) logf(format string, args ...interface{}) {
 	bld.WriteString(l.formatLevel(lv))
 	bld.WriteString(" ")
 
-	if caller := l.reportCaller(2); caller != "" {
+	if caller := l.reportCaller(l.callerDepth); caller != "" {
 		bld.WriteString("{")
 		bld.WriteString(caller)
 		bld.WriteString("} ")
 	}
 
-	bld.WriteString(msg)  //nolint
-	bld.WriteString("\n") //nolint
+	bld.WriteString(msg)
+
+	if !strings.HasSuffix(msg, "\n") { // A newline is appended if the last character of s is not already a newline.
+		bld.WriteString("\n")
+	}
 
 	l.lock.Lock()
 	msgb := []byte(bld.String())
-	l.stdout.Write(msgb) //nolint
+	_, _ = l.stdout.Write(msgb)
 
 	switch lv {
 	case "PANIC", "FATAL":
-		l.stderr.Write(msgb)      //nolint
-		bld.WriteString("\n")     //nolint
-		l.stderr.Write(getDump()) //nolint
+		_, _ = l.stderr.Write(msgb)
+		_, _ = l.stderr.Write(getDump())
 		l.fatal()
 	case "ERROR":
-		l.stderr.Write(msgb) //nolint
+		_, _ = l.stderr.Write(msgb) //nolint
 	}
 
 	l.lock.Unlock()
@@ -102,19 +109,43 @@ func (l *Logger) logf(format string, args ...interface{}) {
 
 // calldepth 0 identifying the caller of reportCaller()
 func (l *Logger) reportCaller(calldepth int) string {
+
 	if !(l.callerFile || l.callerFunc || l.callerPkg) {
 		return ""
 	}
 
-	filePath, line, funcName := l.caller(calldepth + 1)
+	// caller gets file, line number abd function name via runtime.Callers
+	// file looks like /go/src/github.com/go-pkgz/lgr/logger.go
+	// file is an empty string if not known.
+	// funcName looks like:
+	//   main.Test
+	//   foo/bar.Test
+	//   foo/bar.Test.func1
+	//   foo/bar.(*Bar).Test
+	//   foo/bar.glob..func1
+	// funcName is an empty string if not known.
+	// line is a zero if not known.
+	caller := func(calldepth int) (file string, line int, funcName string) {
+		pcs := make([]uintptr, 1)
+		n := runtime.Callers(calldepth, pcs)
+		if n != 1 {
+			return "", 0, ""
+		}
+
+		frame, _ := runtime.CallersFrames(pcs).Next()
+
+		return frame.File, frame.Line, frame.Function
+	}
+
+	// add 5 to adjust stack level because it was called from 3 nested functions added by lgr, i.e. caller, reportCaller and logf, plus 2 frames by runtime
+	filePath, line, funcName := caller(calldepth + 2 + 3)
 	if (filePath == "") || (line <= 0) || (funcName == "") {
 		return "???"
 	}
 
 	// callerPkg only if no other callers
 	if l.callerPkg && !l.callerFile && !l.callerFunc {
-		pkgInfo := l.ignoreCaller(filePath)
-		_, pkgInfo = path.Split(path.Dir(pkgInfo))
+		_, pkgInfo := path.Split(path.Dir(filePath))
 		return pkgInfo
 	}
 
@@ -138,40 +169,6 @@ func (l *Logger) reportCaller(calldepth int) string {
 	}
 
 	return res
-}
-
-// caller is a modified version of runtime.Caller()
-// calldepth 0 identifying the caller of caller()
-// file looks like:
-//   /go/src/github.com/go-pkgz/lgr/logger.go
-// file is an empty string if not known.
-// funcName looks like:
-//   main.Test
-//   foo/bar.Test
-//   foo/bar.Test.func1
-//   foo/bar.(*Bar).Test
-//   foo/bar.glob..func1
-// funcName is an empty string if not known.
-// line is a zero if not known.
-func (l *Logger) caller(calldepth int) (file string, line int, funcName string) {
-	pcs := make([]uintptr, 1)
-	n := runtime.Callers(calldepth+2, pcs)
-	if n != 1 {
-		return "", 0, ""
-	}
-
-	frame, _ := runtime.CallersFrames(pcs).Next()
-
-	return frame.File, frame.Line, frame.Function
-}
-
-func (l *Logger) ignoreCaller(p string) string {
-	for _, s := range l.ignoredPkgCallers {
-		if strings.Contains(p, "/"+s+"/") {
-			return strings.Replace(p, "/"+s, "", 1)
-		}
-	}
-	return p
 }
 
 func (l *Logger) formatLevel(lv string) string {
@@ -239,9 +236,11 @@ func Debug(l *Logger) {
 	l.dbg = true
 }
 
-// CallerFile adds caller info with file, and line number
-func CallerFile(l *Logger) {
-	l.callerFile = true
+// CallerDepth sets number of stack frame skipped for caller reporting
+func CallerDepth(n int) Option {
+	return func(l *Logger) {
+		l.callerDepth = n
+	}
 }
 
 // CallerFunc adds caller info with function name
@@ -254,16 +253,14 @@ func CallerPkg(l *Logger) {
 	l.callerPkg = true
 }
 
-// CallerIgnore sets packages skipped from logging caller
-func CallerIgnore(ignores ...string) Option {
-	return func(l *Logger) {
-		l.ignoredPkgCallers = ignores
-	}
-}
-
 // LevelBraces adds [] to level
 func LevelBraces(l *Logger) {
 	l.levelBraces = true
+}
+
+// CallerFile adds caller info with file, and line number
+func CallerFile(l *Logger) {
+	l.callerFile = true
 }
 
 // Msec adds .msec to timestamp
