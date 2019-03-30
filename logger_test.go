@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"strconv"
 	"strings"
 	"sync"
 	"testing"
@@ -32,7 +33,6 @@ func TestLoggerNoDbg(t *testing.T) {
 	rout, rerr := bytes.NewBuffer([]byte{}), bytes.NewBuffer([]byte{})
 	l := New(Out(rout), Err(rerr), Format(WithMsec))
 	l.now = func() time.Time { return time.Date(2018, 1, 7, 13, 2, 34, 0, time.Local) }
-
 	for i, tt := range tbl {
 		rout.Reset()
 		rerr.Reset()
@@ -124,27 +124,40 @@ func TestLoggerWithCallerDepth(t *testing.T) {
 	}
 	f(l1)
 
-	assert.Equal(t, "2018/01/07 13:02:34.123 DEBUG (lgr/logger_test.go:145 lgr.TestLoggerWithCallerDepth) something 123 err\n", rout.String())
+	assert.Equal(t, "2018/01/07 13:02:34.123 DEBUG (lgr/logger_test.go:125 lgr.TestLoggerWithCallerDepth) something 123 err\n",
+		rout.String())
 
 	rout.Reset()
 	rerr.Reset()
 	l2 := New(Debug, Out(rout), Err(rerr), Format(FullDebug), CallerDepth(0))
 	l2.now = func() time.Time { return time.Date(2018, 1, 7, 13, 2, 34, 123000000, time.Local) }
 	f(l2)
-	assert.Equal(t, "2018/01/07 13:02:34.123 DEBUG (lgr/logger_test.go:143 lgr.TestLoggerWithCallerDepth.func2) something 123 err\n", rout.String())
+	assert.Equal(t, "2018/01/07 13:02:34.123 DEBUG (lgr/logger_test.go:123 lgr.TestLoggerWithCallerDepth."+
+		"func2) something 123 err\n", rout.String())
 }
 
-//func TestLoggerWithLevelBraces(t *testing.T) {
-//	rout, rerr := bytes.NewBuffer([]byte{}), bytes.NewBuffer([]byte{})
-//	l := New(Debug, Out(rout), Err(rerr), LevelBraces, Msec)
-//	l.now = func() time.Time { return time.Date(2018, 1, 7, 13, 2, 34, 123000000, time.Local) }
-//	l.Logf("[DEBUG] something 123 %s", "err")
-//	assert.Equal(t, "2018/01/07 13:02:34.123 [DEBUG] something 123 err\n", rout.String())
-//
-//	rout.Reset()
-//	l.Logf("something 123 %s", "err")
-//	assert.Equal(t, "2018/01/07 13:02:34.123 [INFO]  something 123 err\n", rout.String())
-//}
+func TestLogger_templateFromOptions(t *testing.T) {
+	tbl := []struct {
+		opts []Option
+		res  string
+	}{
+		{[]Option{}, `{{.DT.Format "2006/01/02 15:04:05"}} {{.Level}} {{.Message}}`},
+		{[]Option{Msec}, `{{.DT.Format "2006/01/02 15:04:05.000"}} {{.Level}} {{.Message}}`},
+		{[]Option{Msec, LevelBraces}, `{{.DT.Format "2006/01/02 15:04:05.000"}} [{{.Level}}] {{.Message}}`},
+		{[]Option{CallerFile}, `{{.DT.Format "2006/01/02 15:04:05"}} {{.Level}} ({{.CallerFile}}:{{.CallerLine}}) {{.Message}}`},
+		{[]Option{CallerFile, CallerFunc, Msec}, `{{.DT.Format "2006/01/02 15:04:05.000"}} {{.Level}} ` +
+			`({{.CallerFile}}:{{.CallerLine}} {{.CallerFunc}}) {{.Message}}`},
+		{[]Option{CallerFunc, CallerPkg, Msec, LevelBraces}, `{{.DT.Format "2006/01/02 15:04:05.000"}} [{{.Level}}] ` +
+			`({{.CallerFunc}} {{.CallerPkg}}) {{.Message}}`},
+	}
+
+	for n, tt := range tbl {
+		l := New(tt.opts...)
+		t.Run(strconv.Itoa(n), func(t *testing.T) {
+			assert.Equal(t, tt.res, l.templateFromOptions())
+		})
+	}
+}
 
 func TestLoggerWithPanic(t *testing.T) {
 	fatalCalls := 0
@@ -199,6 +212,14 @@ func TestLoggerConcurrent(t *testing.T) {
 
 	assert.Equal(t, 1001, len(strings.Split(rout.String(), "\n")))
 	assert.Equal(t, "", rerr.String())
+}
+
+func TestLoggerWithLevelBraces(t *testing.T) {
+	rout, rerr := bytes.NewBuffer([]byte{}), bytes.NewBuffer([]byte{})
+	l := New(Debug, Out(rout), Err(rerr), Format(`{{.DT.Format "2006/01/02 15:04:05"}} [{{.Level}}] {{.Message}}`))
+	l.now = func() time.Time { return time.Date(2018, 1, 7, 13, 2, 34, 123000000, time.Local) }
+	l.Logf("[DEBUG] something 123 %s", "err")
+	assert.Equal(t, "2018/01/07 13:02:34 [DEBUG] something 123 err\n", rout.String())
 }
 
 func BenchmarkNoDbg(b *testing.B) {

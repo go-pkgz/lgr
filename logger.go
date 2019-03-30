@@ -37,11 +37,12 @@ type Logger struct {
 	format         string
 
 	// internal use
-	now   nowFn
-	fatal panicFn
-	msec  bool
-	lock  sync.Mutex
-	templ *template.Template
+	now      nowFn
+	fatal    panicFn
+	msec     bool
+	lock     sync.Mutex
+	callerOn bool
+	templ    *template.Template
 }
 
 // can be redefined internally for testing
@@ -58,18 +59,21 @@ func New(options ...Option) *Logger {
 		stdout:      os.Stdout,
 		stderr:      os.Stderr,
 		callerDepth: 0,
-		format:      Short,
 	}
 	for _, opt := range options {
 		opt(&res)
 	}
 
 	var err error
+	if res.format == "" {
+		res.format = res.templateFromOptions()
+	}
 	res.templ, err = template.New("lgr").Parse(res.format)
 	if err != nil {
 		fmt.Printf("invalid template %s, error %v. switched to %s", res.format, err, Short)
 		res.templ = template.Must(template.New("lgr").Parse(Short))
 	}
+	res.callerOn = strings.Contains(res.format, "{{.Caller")
 	return &res
 }
 
@@ -89,7 +93,10 @@ func (l *Logger) logf(format string, args ...interface{}) {
 		return
 	}
 
-	ci := l.reportCaller(l.callerDepth)
+	ci := callerInfo{}
+	if l.callerOn {
+		ci = l.reportCaller(l.callerDepth)
+	}
 
 	elems := struct {
 		DT         time.Time
@@ -164,7 +171,8 @@ func (l *Logger) reportCaller(calldepth int) (res callerInfo) {
 		return frame.File, frame.Line, frame.Function
 	}
 
-	// add 5 to adjust stack level because it was called from 3 nested functions added by lgr, i.e. caller, reportCaller and logf, plus 2 frames by runtime
+	// add 5 to adjust stack level because it was called from 3 nested functions added by lgr, i.e. caller,
+	// reportCaller and logf, plus 2 frames by runtime
 	filePath, line, funcName := caller(calldepth + 2 + 3)
 	if (filePath == "") || (line <= 0) || (funcName == "") {
 		return callerInfo{}
@@ -183,6 +191,37 @@ func (l *Logger) reportCaller(calldepth int) (res callerInfo) {
 	res.FuncName = funcNameElems[len(funcNameElems)-1]
 
 	return res
+}
+
+func (l *Logger) templateFromOptions() (res string) {
+
+	orElse := func(flag bool, value string, elseValue string) string {
+		if flag {
+			return value
+		}
+		return elseValue
+	}
+
+	var parts []string
+
+	parts = append(parts, orElse(l.msec, `{{.DT.Format "2006/01/02 15:04:05.000"}}`, `{{.DT.Format "2006/01/02 15:04:05"}}`))
+	parts = append(parts, orElse(l.levelBraces, `[{{.Level}}]`, `{{.Level}}`))
+
+	if l.callerFile || l.callerFunc || l.callerPkg {
+		var callerParts []string
+		if v := orElse(l.callerFile, `{{.CallerFile}}:{{.CallerLine}}`, ""); v != "" {
+			callerParts = append(callerParts, v)
+		}
+		if v := orElse(l.callerFunc, `{{.CallerFunc}}`, ""); v != "" {
+			callerParts = append(callerParts, v)
+		}
+		if v := orElse(l.callerPkg, `{{.CallerPkg}}`, ""); v != "" {
+			callerParts = append(callerParts, v)
+		}
+		parts = append(parts, "("+strings.Join(callerParts, " ")+")")
+	}
+	parts = append(parts, "{{.Message}}")
+	return strings.Join(parts, " ")
 }
 
 func (l *Logger) formatLevel(lv string) string {
@@ -255,4 +294,29 @@ func Format(f string) Option {
 	return func(l *Logger) {
 		l.format = f
 	}
+}
+
+// CallerFunc adds caller info with function name
+func CallerFunc(l *Logger) {
+	l.callerFunc = true
+}
+
+// CallerPkg adds caller's package name
+func CallerPkg(l *Logger) {
+	l.callerPkg = true
+}
+
+// LevelBraces adds [] to level
+func LevelBraces(l *Logger) {
+	l.levelBraces = true
+}
+
+// CallerFile adds caller info with file, and line number
+func CallerFile(l *Logger) {
+	l.callerFile = true
+}
+
+// Msec adds .msec to timestamp
+func Msec(l *Logger) {
+	l.msec = true
 }
