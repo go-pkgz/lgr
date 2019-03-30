@@ -30,13 +30,13 @@ func TestAdaptor_ToWriterNoLevel(t *testing.T) {
 	sz, err := wr.Write([]byte("something blah 123"))
 	require.NoError(t, err)
 	assert.Equal(t, 18, sz)
-	assert.Equal(t, "2018/01/07 13:02:34.000 [INFO ] something blah 123\n", rout.String())
+	assert.Equal(t, "2018/01/07 13:02:34.000 [INFO]  something blah 123\n", rout.String())
 
 	rout.Reset()
 	rerr.Reset()
 	_, err = wr.Write([]byte("INFO something blah 123"))
 	require.NoError(t, err)
-	assert.Equal(t, "2018/01/07 13:02:34.000 [INFO ] something blah 123\n", rout.String())
+	assert.Equal(t, "2018/01/07 13:02:34.000 [INFO]  something blah 123\n", rout.String())
 }
 
 func TestAdaptor_ToStdLogger(t *testing.T) {

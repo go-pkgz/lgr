@@ -218,8 +218,17 @@ func TestLoggerWithLevelBraces(t *testing.T) {
 	rout, rerr := bytes.NewBuffer([]byte{}), bytes.NewBuffer([]byte{})
 	l := New(Debug, Out(rout), Err(rerr), Format(`{{.DT.Format "2006/01/02 15:04:05"}} [{{.Level}}] {{.Message}}`))
 	l.now = func() time.Time { return time.Date(2018, 1, 7, 13, 2, 34, 123000000, time.Local) }
-	l.Logf("[DEBUG] something 123 %s", "err")
-	assert.Equal(t, "2018/01/07 13:02:34 [DEBUG] something 123 err\n", rout.String())
+	l.Logf("[INFO] something 123 %s", "err")
+	assert.Equal(t, "2018/01/07 13:02:34 [INFO]  something 123 err\n", rout.String())
+
+	l = New(Debug, Out(rout), Err(rerr), LevelBraces)
+	l.now = func() time.Time { return time.Date(2018, 1, 7, 13, 2, 34, 123000000, time.Local) }
+	rout.Reset()
+	rerr.Reset()
+	l.Logf("[ERROR] some warning 123")
+	assert.Equal(t, "2018/01/07 13:02:34 [ERROR] some warning 123\n", rout.String())
+	assert.Equal(t, "2018/01/07 13:02:34 [ERROR] some warning 123\n", rerr.String())
+
 }
 
 func BenchmarkNoDbg(b *testing.B) {

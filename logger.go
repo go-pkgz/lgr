@@ -34,15 +34,16 @@ type Logger struct {
 	callerPkg      bool      // reports caller package name
 	levelBraces    bool      // encloses level with [], i.e. [INFO]
 	callerDepth    int       // how many stack frames to skip
-	format         string
+	format         string    // layout template
 
 	// internal use
-	now      nowFn
-	fatal    panicFn
-	msec     bool
-	lock     sync.Mutex
-	callerOn bool
-	templ    *template.Template
+	now           nowFn
+	fatal         panicFn
+	msec          bool
+	lock          sync.Mutex
+	callerOn      bool
+	levelBracesOn bool
+	templ         *template.Template
 }
 
 // can be redefined internally for testing
@@ -74,6 +75,7 @@ func New(options ...Option) *Logger {
 		res.templ = template.Must(template.New("lgr").Parse(Short))
 	}
 	res.callerOn = strings.Contains(res.format, "{{.Caller")
+	res.levelBracesOn = strings.Contains(res.format, "[{{.Level}}]")
 	return &res
 }
 
@@ -94,7 +96,7 @@ func (l *Logger) logf(format string, args ...interface{}) {
 	}
 
 	ci := callerInfo{}
-	if l.callerOn {
+	if l.callerOn { // optimization to avlod expensive caller evaluation if not in template
 		ci = l.reportCaller(l.callerDepth)
 	}
 
@@ -117,22 +119,28 @@ func (l *Logger) logf(format string, args ...interface{}) {
 	}
 
 	buf := bytes.Buffer{}
-	err := l.templ.Execute(&buf, elems)
+	err := l.templ.Execute(&buf, elems) // once constructed, a template may be executed safely in parallel.
 	if err != nil {
 		fmt.Printf("failed to execute template, %v", err)
 	}
 	buf.WriteString("\n")
 
-	l.lock.Lock()
-	_, _ = l.stdout.Write(buf.Bytes())
+	data := buf.Bytes()
+	if l.levelBracesOn {
+		data = bytes.Replace(data, []byte(" ]"), []byte("] "), 1) // substitute for short levels, i.e. "[INFO ]"
+	}
 
+	l.lock.Lock()
+	_, _ = l.stdout.Write(data)
+
+	// write to err as well for high levels
 	switch lv {
 	case "PANIC", "FATAL":
-		_, _ = l.stderr.Write(buf.Bytes())
+		_, _ = l.stderr.Write(data)
 		_, _ = l.stderr.Write(getDump())
 		l.fatal()
 	case "ERROR":
-		_, _ = l.stderr.Write(buf.Bytes())
+		_, _ = l.stderr.Write(data)
 	}
 
 	l.lock.Unlock()
@@ -193,6 +201,7 @@ func (l *Logger) reportCaller(calldepth int) (res callerInfo) {
 	return res
 }
 
+// make template from options flag
 func (l *Logger) templateFromOptions() (res string) {
 
 	orElse := func(flag bool, value string, elseValue string) string {
@@ -224,6 +233,7 @@ func (l *Logger) templateFromOptions() (res string) {
 	return strings.Join(parts, " ")
 }
 
+// formatLevel aligns level to 5 chars
 func (l *Logger) formatLevel(lv string) string {
 
 	if lv == "" {
