@@ -127,7 +127,8 @@ func (l *Logger) logf(format string, args ...interface{}) {
 
 	data := buf.Bytes()
 	if l.levelBracesOn {
-		data = bytes.Replace(data, []byte(" ]"), []byte("] "), 1) // substitute for short levels, i.e. "[INFO ]"
+		data = bytes.Replace(data, []byte("[WARN ]"), []byte("[WARN] "), 1)
+		data = bytes.Replace(data, []byte("[INFO ]"), []byte("[INFO] "), 1)
 	}
 
 	l.lock.Lock()
