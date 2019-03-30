@@ -64,9 +64,10 @@ User can make a custom template and pass it directly to `lgr.Format`. For exampl
     
 ### levels
 
-`lgr.Logf` recognizes prefixes like "INFO" or "[INFO]" as levels. The full list of supported levels - "DEBUG", "INFO", "WARN", "ERROR", "PANIC" and "FATAL"
+`lgr.Logf` recognizes prefixes like "INFO" or "[INFO]" as levels. The full list of supported levels - "TRACE", "DEBUG", "INFO", "WARN", "ERROR", "PANIC" and "FATAL"
 
-- `DEBUG` will be filtered unless `lgr.Debug` option defined
+- `TRACE` will be filtered unless `lgr.Trace` option defined
+- `DEBUG` will be filtered unless `lgr.Debug` or `lgr.Trace` options defined
 - `INFO` and `WARN` don't have any special behavior attached
 - `ERROR` sends messages to both out and err writers
 - `PANIC` and `FATAL` send messages to both out and err writers. In addition sends dump of callers and runtime info to err only, and calls `os.Exit(1)`.

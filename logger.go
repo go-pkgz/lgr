@@ -13,7 +13,7 @@ import (
 	"time"
 )
 
-var levels = []string{"DEBUG", "INFO", "WARN", "ERROR", "PANIC", "FATAL"}
+var levels = []string{"TRACE", "DEBUG", "INFO", "WARN", "ERROR", "PANIC", "FATAL"}
 
 const (
 	Short      = `{{.DT.Format "2006/01/02 15:04:05"}} {{.Level}} {{.Message}}`
@@ -29,6 +29,7 @@ type Logger struct {
 	// set with Option calls
 	stdout, stderr io.Writer // destination writes for out and err
 	dbg            bool      // allows reporting for DEBUG level
+	trace          bool      // allows reporting for TRACE and DEBUG levels
 	callerFile     bool      // reports caller file, i.e. /go/src/github.com/go-pkgz/lgr/logger.go
 	callerFunc     bool      // reports caller function name, i.e. foo/bar.myFunc
 	callerPkg      bool      // reports caller package name
@@ -92,6 +93,9 @@ func (l *Logger) logf(format string, args ...interface{}) {
 
 	lv, msg := l.extractLevel(fmt.Sprintf(format, args...))
 	if lv == "DEBUG" && !l.dbg {
+		return
+	}
+	if lv == "TRACE" && !l.trace {
 		return
 	}
 
@@ -292,6 +296,12 @@ func Err(w io.Writer) Option {
 // Debug turn on dbg mode
 func Debug(l *Logger) {
 	l.dbg = true
+}
+
+// Trace turn on trace + dbg mode
+func Trace(l *Logger) {
+	l.dbg = true
+	l.trace = true
 }
 
 // CallerDepth sets number of stack frame skipped for caller reporting
