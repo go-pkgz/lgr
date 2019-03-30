@@ -51,6 +51,16 @@ type Logger struct {
 type nowFn func() time.Time
 type panicFn func()
 
+type layout struct {
+	DT         time.Time
+	Level      string
+	Message    string
+	CallerPkg  string
+	CallerFile string
+	CallerFunc string
+	CallerLine int
+}
+
 // New makes new leveled logger. Accepts dbg flag turing on info about the caller and allowing DEBUG messages.
 // Two writers can be passed optionally - first for out and second for err
 func New(options ...Option) *Logger {
@@ -70,11 +80,21 @@ func New(options ...Option) *Logger {
 	if res.format == "" {
 		res.format = res.templateFromOptions()
 	}
+
 	res.templ, err = template.New("lgr").Parse(res.format)
 	if err != nil {
-		fmt.Printf("invalid template %s, error %v. switched to %s", res.format, err, Short)
-		res.templ = template.Must(template.New("lgr").Parse(Short))
+		fmt.Printf("invalid template %s, error %v. switched to %s\n", res.format, err, Short)
+		res.format = Short
+		res.templ = template.Must(template.New("lgrDefault").Parse(Short))
 	}
+
+	buf := bytes.Buffer{}
+	if err = res.templ.Execute(&buf, layout{}); err != nil {
+		fmt.Printf("failed to execute template %s, error %v. switched to %s\n", res.format, err, Short)
+		res.format = Short
+		res.templ = template.Must(template.New("lgrDefault").Parse(Short))
+	}
+
 	res.callerOn = strings.Contains(res.format, "{{.Caller")
 	res.levelBracesOn = strings.Contains(res.format, "[{{.Level}}]")
 	return &res
@@ -104,15 +124,7 @@ func (l *Logger) logf(format string, args ...interface{}) {
 		ci = l.reportCaller(l.callerDepth)
 	}
 
-	elems := struct {
-		DT         time.Time
-		Level      string
-		Message    string
-		CallerPkg  string
-		CallerFile string
-		CallerFunc string
-		CallerLine int
-	}{
+	elems := layout{
 		DT:         l.now(),
 		Level:      l.formatLevel(lv),
 		Message:    strings.TrimSuffix(msg, "\n"),
@@ -125,7 +137,7 @@ func (l *Logger) logf(format string, args ...interface{}) {
 	buf := bytes.Buffer{}
 	err := l.templ.Execute(&buf, elems) // once constructed, a template may be executed safely in parallel.
 	if err != nil {
-		fmt.Printf("failed to execute template, %v", err)
+		fmt.Printf("failed to execute template, %v\n", err)
 	}
 	buf.WriteString("\n")
 

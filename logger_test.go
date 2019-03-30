@@ -256,6 +256,23 @@ func TestLoggerWithTrace(t *testing.T) {
 	assert.Equal(t, "", rout.String())
 }
 
+func TestLoggerWithInvalidTemplate(t *testing.T) {
+
+	// invalid template format
+	rout, rerr := bytes.NewBuffer([]byte{}), bytes.NewBuffer([]byte{})
+	l := New(Out(rout), Err(rerr), Format(`{{.DT.Format "2006/01/02 15:04:05"}} {{{.BadThing}} {{.Message}}`))
+	l.now = func() time.Time { return time.Date(2018, 1, 7, 13, 2, 34, 123000000, time.Local) }
+	l.Logf("[INFO] something 123 %s", "err")
+	assert.Equal(t, "2018/01/07 13:02:34 INFO  something 123 err\n", rout.String(), "default format")
+
+	// invalid var
+	rout, rerr = bytes.NewBuffer([]byte{}), bytes.NewBuffer([]byte{})
+	l1 := New(Out(rout), Err(rerr), Format(`{{.DT.Format "2006/01/02 15:04:05"}} {{.BadThing}} {{.Message}}`))
+	l1.now = func() time.Time { return time.Date(2018, 1, 7, 13, 2, 34, 123000000, time.Local) }
+	l1.Logf("[INFO] something 123 %s", "err")
+	assert.Equal(t, "2018/01/07 13:02:34 INFO  something 123 err\n", rout.String(), "default format")
+}
+
 func BenchmarkNoDbg(b *testing.B) {
 	rout, rerr := bytes.NewBuffer([]byte{}), bytes.NewBuffer([]byte{})
 	l := New(Out(rout), Err(rerr))
