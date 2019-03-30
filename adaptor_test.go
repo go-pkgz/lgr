@@ -11,7 +11,7 @@ import (
 
 func TestAdaptor_ToWriter(t *testing.T) {
 	rout, rerr := bytes.NewBuffer([]byte{}), bytes.NewBuffer([]byte{})
-	l := New(Out(rout), Err(rerr), Msec, LevelBraces)
+	l := New(Out(rout), Err(rerr), Format(WithMsec))
 	l.now = func() time.Time { return time.Date(2018, 1, 7, 13, 2, 34, 0, time.Local) }
 
 	wr := ToWriter(l, "WARN")
@@ -23,7 +23,7 @@ func TestAdaptor_ToWriter(t *testing.T) {
 
 func TestAdaptor_ToWriterNoLevel(t *testing.T) {
 	rout, rerr := bytes.NewBuffer([]byte{}), bytes.NewBuffer([]byte{})
-	l := New(Out(rout), Err(rerr), Msec, LevelBraces)
+	l := New(Out(rout), Err(rerr), Format(WithMsec))
 	l.now = func() time.Time { return time.Date(2018, 1, 7, 13, 2, 34, 0, time.Local) }
 
 	wr := ToWriter(l, "")
@@ -41,7 +41,7 @@ func TestAdaptor_ToWriterNoLevel(t *testing.T) {
 
 func TestAdaptor_ToStdLogger(t *testing.T) {
 	rout, rerr := bytes.NewBuffer([]byte{}), bytes.NewBuffer([]byte{})
-	l := New(Out(rout), Err(rerr), Msec, LevelBraces)
+	l := New(Out(rout), Err(rerr), Format(WithMsec))
 	l.now = func() time.Time { return time.Date(2018, 1, 7, 13, 2, 34, 0, time.Local) }
 
 	wr := ToStdLogger(l, "WARN")

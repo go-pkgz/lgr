@@ -1,6 +1,7 @@
 package lgr
 
 import (
+	"bytes"
 	"fmt"
 	"io"
 	"os"
@@ -8,10 +9,20 @@ import (
 	"runtime"
 	"strings"
 	"sync"
+	"text/template"
 	"time"
 )
 
 var levels = []string{"DEBUG", "INFO", "WARN", "ERROR", "PANIC", "FATAL"}
+
+const (
+	Short      = `{{.DT.Format "2006/01/02 15:04:05"}} {{.Level}} {{.Message}}`
+	WithMsec   = `{{.DT.Format "2006/01/02 15:04:05.000"}} {{.Level}} {{.Message}}`
+	WithPkg    = `{{.DT.Format "2006/01/02 15:04:05.000"}} {{.Level}} ({{.CallerPkg}}) {{.Message}}`
+	ShortDebug = `{{.DT.Format "2006/01/02 15:04:05.000"}} {{.Level}} ({{.CallerFile}}:{{.CallerLine}}) {{.Message}}`
+	FuncDebug  = `{{.DT.Format "2006/01/02 15:04:05.000"}} {{.Level}} ({{.CallerFunc}}) {{.Message}}`
+	FullDebug  = `{{.DT.Format "2006/01/02 15:04:05.000"}} {{.Level}} ({{.CallerFile}}:{{.CallerLine}} {{.CallerFunc}}) {{.Message}}`
+)
 
 // Logger provided simple logger with basic support of levels. Thread safe
 type Logger struct {
@@ -23,12 +34,14 @@ type Logger struct {
 	callerPkg      bool      // reports caller package name
 	levelBraces    bool      // encloses level with [], i.e. [INFO]
 	callerDepth    int       // how many stack frames to skip
+	format         string
 
 	// internal use
 	now   nowFn
 	fatal panicFn
 	msec  bool
 	lock  sync.Mutex
+	templ *template.Template
 }
 
 // can be redefined internally for testing
@@ -38,15 +51,24 @@ type panicFn func()
 // New makes new leveled logger. Accepts dbg flag turing on info about the caller and allowing DEBUG messages.
 // Two writers can be passed optionally - first for out and second for err
 func New(options ...Option) *Logger {
+
 	res := Logger{
 		now:         time.Now,
 		fatal:       func() { os.Exit(1) },
 		stdout:      os.Stdout,
 		stderr:      os.Stderr,
 		callerDepth: 0,
+		format:      Short,
 	}
 	for _, opt := range options {
 		opt(&res)
+	}
+
+	var err error
+	res.templ, err = template.New("lgr").Parse(res.format)
+	if err != nil {
+		fmt.Printf("invalid template %s, error %v. switched to %s", res.format, err, Short)
+		res.templ = template.Must(template.New("lgr").Parse(Short))
 	}
 	return &res
 }
@@ -62,57 +84,62 @@ func (l *Logger) Logf(format string, args ...interface{}) {
 
 func (l *Logger) logf(format string, args ...interface{}) {
 
-	// format timestamp with or without msecs
-	ts := func() (res string) {
-		if l.msec {
-			return l.now().Format("2006/01/02 15:04:05.000")
-		}
-		return l.now().Format("2006/01/02 15:04:05")
-	}
-
 	lv, msg := l.extractLevel(fmt.Sprintf(format, args...))
 	if lv == "DEBUG" && !l.dbg {
 		return
 	}
-	var bld strings.Builder
-	bld.WriteString(ts())
-	bld.WriteString(l.formatLevel(lv))
-	bld.WriteString(" ")
 
-	if caller := l.reportCaller(l.callerDepth); caller != "" {
-		bld.WriteString("{")
-		bld.WriteString(caller)
-		bld.WriteString("} ")
+	ci := l.reportCaller(l.callerDepth)
+
+	elems := struct {
+		DT         time.Time
+		Level      string
+		Message    string
+		CallerPkg  string
+		CallerFile string
+		CallerFunc string
+		CallerLine int
+	}{
+		DT:         l.now(),
+		Level:      l.formatLevel(lv),
+		Message:    strings.TrimSuffix(msg, "\n"),
+		CallerFunc: ci.FuncName,
+		CallerFile: ci.File,
+		CallerPkg:  ci.Pkg,
+		CallerLine: ci.Line,
 	}
 
-	bld.WriteString(msg)
-
-	if !strings.HasSuffix(msg, "\n") { // A newline is appended if the last character of s is not already a newline.
-		bld.WriteString("\n")
+	buf := bytes.Buffer{}
+	err := l.templ.Execute(&buf, elems)
+	if err != nil {
+		fmt.Printf("failed to execute template, %v", err)
 	}
+	buf.WriteString("\n")
 
 	l.lock.Lock()
-	msgb := []byte(bld.String())
-	_, _ = l.stdout.Write(msgb)
+	_, _ = l.stdout.Write(buf.Bytes())
 
 	switch lv {
 	case "PANIC", "FATAL":
-		_, _ = l.stderr.Write(msgb)
+		_, _ = l.stderr.Write(buf.Bytes())
 		_, _ = l.stderr.Write(getDump())
 		l.fatal()
 	case "ERROR":
-		_, _ = l.stderr.Write(msgb) //nolint
+		_, _ = l.stderr.Write(buf.Bytes())
 	}
 
 	l.lock.Unlock()
 }
 
-// calldepth 0 identifying the caller of reportCaller()
-func (l *Logger) reportCaller(calldepth int) string {
+type callerInfo struct {
+	File     string
+	Line     int
+	FuncName string
+	Pkg      string
+}
 
-	if !(l.callerFile || l.callerFunc || l.callerPkg) {
-		return ""
-	}
+// calldepth 0 identifying the caller of reportCaller()
+func (l *Logger) reportCaller(calldepth int) (res callerInfo) {
 
 	// caller gets file, line number abd function name via runtime.Callers
 	// file looks like /go/src/github.com/go-pkgz/lgr/logger.go
@@ -140,45 +167,25 @@ func (l *Logger) reportCaller(calldepth int) string {
 	// add 5 to adjust stack level because it was called from 3 nested functions added by lgr, i.e. caller, reportCaller and logf, plus 2 frames by runtime
 	filePath, line, funcName := caller(calldepth + 2 + 3)
 	if (filePath == "") || (line <= 0) || (funcName == "") {
-		return "???"
+		return callerInfo{}
 	}
 
-	// callerPkg only if no other callers
-	if l.callerPkg && !l.callerFile && !l.callerFunc {
-		_, pkgInfo := path.Split(path.Dir(filePath))
-		return pkgInfo
-	}
+	_, pkgInfo := path.Split(path.Dir(filePath))
+	res.Pkg = pkgInfo
 
-	res := ""
-
-	if l.callerFile {
-		fileInfo := filePath
-		if pathElems := strings.Split(filePath, "/"); len(pathElems) > 2 {
-			fileInfo = strings.Join(pathElems[len(pathElems)-2:], "/")
-		}
-		res += fmt.Sprintf("%s:%d", fileInfo, line)
-		if l.callerFunc {
-			res += " "
-		}
+	res.File = filePath
+	if pathElems := strings.Split(filePath, "/"); len(pathElems) > 2 {
+		res.File = strings.Join(pathElems[len(pathElems)-2:], "/")
 	}
+	res.Line = line
 
-	if l.callerFunc {
-		funcNameElems := strings.Split(funcName, "/")
-		funcInfo := funcNameElems[len(funcNameElems)-1]
-		res += funcInfo
-	}
+	funcNameElems := strings.Split(funcName, "/")
+	res.FuncName = funcNameElems[len(funcNameElems)-1]
 
 	return res
 }
 
 func (l *Logger) formatLevel(lv string) string {
-
-	brace := func(b string) string {
-		if l.levelBraces {
-			return b
-		}
-		return ""
-	}
 
 	if lv == "" {
 		return ""
@@ -188,9 +195,10 @@ func (l *Logger) formatLevel(lv string) string {
 	if len(lv) == 4 {
 		spaces = " "
 	}
-	return " " + brace("[") + lv + brace("]") + spaces
+	return lv + spaces
 }
 
+// extractLevel parses messages with optional level prefix and returns level and the message with stripped level
 func (l *Logger) extractLevel(line string) (level, msg string) {
 	for _, lv := range levels {
 		if strings.HasPrefix(line, lv) {
@@ -243,27 +251,8 @@ func CallerDepth(n int) Option {
 	}
 }
 
-// CallerFunc adds caller info with function name
-func CallerFunc(l *Logger) {
-	l.callerFunc = true
-}
-
-// CallerPkg adds caller's package name
-func CallerPkg(l *Logger) {
-	l.callerPkg = true
-}
-
-// LevelBraces adds [] to level
-func LevelBraces(l *Logger) {
-	l.levelBraces = true
-}
-
-// CallerFile adds caller info with file, and line number
-func CallerFile(l *Logger) {
-	l.callerFile = true
-}
-
-// Msec adds .msec to timestamp
-func Msec(l *Logger) {
-	l.msec = true
+func Format(f string) Option {
+	return func(l *Logger) {
+		l.format = f
+	}
 }
