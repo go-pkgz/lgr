@@ -159,11 +159,14 @@ func (l *Logger) logf(format string, args ...interface{}) {
 	l.lock.Lock()
 	_, _ = l.stdout.Write(data)
 
-	// write to err as well for high levels, and panic (dump + exit(1)) on fatal levels
+	// write to err as well for high levels, exit(1) on fatal and panic and dump stack on panic level
 	switch lv {
 	case "ERROR":
 		_, _ = l.stderr.Write(data)
-	case "PANIC", "FATAL":
+	case "FATAL":
+		_, _ = l.stderr.Write(data)
+		l.fatal()
+	case "PANIC":
 		_, _ = l.stderr.Write(data)
 		_, _ = l.stderr.Write(getDump())
 		l.fatal()

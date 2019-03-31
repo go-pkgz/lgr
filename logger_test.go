@@ -175,9 +175,10 @@ func TestLoggerWithPanic(t *testing.T) {
 
 	rout.Reset()
 	rerr.Reset()
-	l.Logf("[FATAL] oh my, panic now! %v", errors.New("bad thing happened"))
+	l.Logf("[FATAL] oh my, fatal error! %v", errors.New("bad thing happened"))
 	assert.Equal(t, 2, fatalCalls)
-	assert.Equal(t, "2018/01/07 13:02:34.000 FATAL (lgr.TestLoggerWithPanic) oh my, panic now! bad thing happened\n", rout.String())
+	assert.Equal(t, "2018/01/07 13:02:34.000 FATAL (lgr.TestLoggerWithPanic) oh my, fatal error! bad thing happened\n", rout.String())
+	assert.Equal(t, "2018/01/07 13:02:34.000 FATAL (lgr.TestLoggerWithPanic) oh my, fatal error! bad thing happened\n", rerr.String())
 
 	rout.Reset()
 	rerr.Reset()
