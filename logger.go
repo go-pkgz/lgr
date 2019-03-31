@@ -146,7 +146,7 @@ func (l *Logger) logf(format string, args ...interface{}) {
 	buf := bytes.Buffer{}
 	err := l.templ.Execute(&buf, elems) // once constructed, a template may be executed safely in parallel.
 	if err != nil {
-		fmt.Printf("failed to execute template, %v\n", err)
+		fmt.Printf("failed to execute template, %v\n", err) // should never happen
 	}
 	buf.WriteString("\n")
 

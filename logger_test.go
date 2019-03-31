@@ -164,7 +164,7 @@ func TestLoggerWithPanic(t *testing.T) {
 	l.now = func() time.Time { return time.Date(2018, 1, 7, 13, 2, 34, 0, time.Local) }
 	l.fatal = func() { fatalCalls++ }
 
-	l.Logf("[PANIC] oh my, panic now! %v", errors.New("bad thing happened"))
+	l.Logf("PANIC oh my, panic now! %v", errors.New("bad thing happened"))
 	assert.Equal(t, 1, fatalCalls)
 	assert.Equal(t, "2018/01/07 13:02:34.000 PANIC (lgr.TestLoggerWithPanic) oh my, panic now! bad thing happened\n", rout.String())
 
@@ -227,6 +227,11 @@ func TestLoggerWithLevelBraces(t *testing.T) {
 	l.Logf("[ERROR] some warning 123")
 	assert.Equal(t, "2018/01/07 13:02:34 [ERROR] some warning 123\n", rout.String())
 	assert.Equal(t, "2018/01/07 13:02:34 [ERROR] some warning 123\n", rerr.String())
+
+	rout.Reset()
+	rerr.Reset()
+	l.Logf("WARN some warning 123")
+	assert.Equal(t, "2018/01/07 13:02:34 [WARN]  some warning 123\n", rout.String())
 }
 
 func TestLoggerWithTrace(t *testing.T) {
@@ -260,7 +265,6 @@ func TestLoggerWithTrace(t *testing.T) {
 	rerr.Reset()
 	l.Logf("[TRACE] something 123 %s", "err")
 	assert.Equal(t, "2018/01/07 13:02:34 TRACE {lgr} something 123 err\n", rout.String())
-
 }
 
 func TestLoggerWithInvalidTemplate(t *testing.T) {
@@ -278,6 +282,14 @@ func TestLoggerWithInvalidTemplate(t *testing.T) {
 	l1.now = func() time.Time { return time.Date(2018, 1, 7, 13, 2, 34, 123000000, time.Local) }
 	l1.Logf("[INFO] something 123 %s", "err")
 	assert.Equal(t, "2018/01/07 13:02:34 INFO  something 123 err\n", rout.String(), "default format")
+}
+
+func TestLoggerOverwriteFormat(t *testing.T) {
+	rout, rerr := bytes.NewBuffer([]byte{}), bytes.NewBuffer([]byte{})
+	l := New(Debug, Out(rout), Err(rerr), Msec, Format(Short), CallerFile) // mix Format with individual flags
+	l.now = func() time.Time { return time.Date(2018, 1, 7, 13, 2, 34, 123000000, time.Local) }
+	l.Logf("INFO something 123 %s", "err")
+	assert.Equal(t, "2018/01/07 13:02:34 INFO  something 123 err\n", rout.String(), "short format enforced")
 }
 
 func BenchmarkNoDbg(b *testing.B) {
