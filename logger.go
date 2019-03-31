@@ -38,11 +38,11 @@ type Logger struct {
 	stdout, stderr io.Writer // destination writes for out and err
 	dbg            bool      // allows reporting for DEBUG level
 	trace          bool      // allows reporting for TRACE and DEBUG levels
-	callerFile     bool      // reports caller file, i.e. /go/src/github.com/go-pkgz/lgr/logger.go
-	callerFunc     bool      // reports caller function name, i.e. foo/bar.myFunc
+	callerFile     bool      // reports caller file with line number, i.e. foo/bar.go:89
+	callerFunc     bool      // reports caller function name, i.e. bar.myFunc
 	callerPkg      bool      // reports caller package name
 	levelBraces    bool      // encloses level with [], i.e. [INFO]
-	callerDepth    int       // how many stack frames to skip, relative to the real (reported frame)
+	callerDepth    int       // how many stack frames to skip, relative to the real (reported) frame
 	format         string    // layout template
 
 	// internal use
@@ -159,7 +159,7 @@ func (l *Logger) logf(format string, args ...interface{}) {
 	l.lock.Lock()
 	_, _ = l.stdout.Write(data)
 
-	// write to err as well for high levels
+	// write to err as well for high levels, and panic (dump + exit(1)) on fatal levels
 	switch lv {
 	case "ERROR":
 		_, _ = l.stderr.Write(data)
@@ -227,11 +227,11 @@ func (l *Logger) reportCaller(calldepth int) (res callerInfo) {
 	return res
 }
 
-// make template from options flag
+// make template from option flags
 func (l *Logger) templateFromOptions() (res string) {
 
 	const (
-		// escape { and } from templates
+		// escape { and } from templates to allow "{some/blah}" output for caller
 		openCallerBrace  = `{{"{"}}`
 		closeCallerBrace = `{{"}"}}`
 	)
@@ -306,14 +306,14 @@ func getDump() []byte {
 // Option func type
 type Option func(l *Logger)
 
-// Out sets out writer
+// Out sets out writer, stdout by default
 func Out(w io.Writer) Option {
 	return func(l *Logger) {
 		l.stdout = w
 	}
 }
 
-// Err sets error writer
+// Err sets error writer, stderr by default
 func Err(w io.Writer) Option {
 	return func(l *Logger) {
 		l.stderr = w
@@ -331,40 +331,41 @@ func Trace(l *Logger) {
 	l.trace = true
 }
 
-// CallerDepth sets number of stack frame skipped for caller reporting
+// CallerDepth sets number of stack frame skipped for caller reporting, 0 by default
 func CallerDepth(n int) Option {
 	return func(l *Logger) {
 		l.callerDepth = n
 	}
 }
 
+// Format sets output layout, overwrites all options for individual parts, i.e. Caller*, Msec and LevelBraces
 func Format(f string) Option {
 	return func(l *Logger) {
 		l.format = f
 	}
 }
 
-// CallerFunc adds caller info with function name
+// CallerFunc adds caller info with function name. Ignored if Format option used.
 func CallerFunc(l *Logger) {
 	l.callerFunc = true
 }
 
-// CallerPkg adds caller's package name
+// CallerPkg adds caller's package name. Ignored if Format option used.
 func CallerPkg(l *Logger) {
 	l.callerPkg = true
 }
 
-// LevelBraces surrounds level with [], i.e. [INFO]
+// LevelBraces surrounds level with [], i.e. [INFO]. Ignored if Format option used.
 func LevelBraces(l *Logger) {
 	l.levelBraces = true
 }
 
-// CallerFile adds caller info with file, and line number
+// CallerFile adds caller info with file, and line number. Ignored if Format option used.
 func CallerFile(l *Logger) {
 	l.callerFile = true
 }
 
-// Msec adds .msec to timestamp
+// Msec adds .msec to timestamp. Ignored if Format option used.
 func Msec(l *Logger) {
 	l.msec = true
 }
