@@ -244,7 +244,7 @@ func (l *Logger) templateFromOptions() (res string) {
 		if v := orElse(l.callerPkg, `{{.CallerPkg}}`, ""); v != "" {
 			callerParts = append(callerParts, v)
 		}
-		parts = append(parts, "("+strings.Join(callerParts, " ")+")")
+		parts = append(parts, `{{"{"}}`+strings.Join(callerParts, " ")+`{{"}"}}`)
 	}
 	parts = append(parts, "{{.Message}}")
 	return strings.Join(parts, " ")

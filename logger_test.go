@@ -31,7 +31,7 @@ func TestLoggerNoDbg(t *testing.T) {
 			"2018/01/07 13:02:34.000 ERROR something 123 aaa\n"},
 	}
 	rout, rerr := bytes.NewBuffer([]byte{}), bytes.NewBuffer([]byte{})
-	l := New(Out(rout), Err(rerr), Format(WithMsec))
+	l := New(Out(rout), Err(rerr), Msec)
 	l.now = func() time.Time { return time.Date(2018, 1, 7, 13, 2, 34, 0, time.Local) }
 	for i, tt := range tbl {
 		rout.Reset()
@@ -144,11 +144,9 @@ func TestLogger_templateFromOptions(t *testing.T) {
 		{[]Option{}, `{{.DT.Format "2006/01/02 15:04:05"}} {{.Level}} {{.Message}}`},
 		{[]Option{Msec}, `{{.DT.Format "2006/01/02 15:04:05.000"}} {{.Level}} {{.Message}}`},
 		{[]Option{Msec, LevelBraces}, `{{.DT.Format "2006/01/02 15:04:05.000"}} [{{.Level}}] {{.Message}}`},
-		{[]Option{CallerFile}, `{{.DT.Format "2006/01/02 15:04:05"}} {{.Level}} ({{.CallerFile}}:{{.CallerLine}}) {{.Message}}`},
-		{[]Option{CallerFile, CallerFunc, Msec}, `{{.DT.Format "2006/01/02 15:04:05.000"}} {{.Level}} ` +
-			`({{.CallerFile}}:{{.CallerLine}} {{.CallerFunc}}) {{.Message}}`},
-		{[]Option{CallerFunc, CallerPkg, Msec, LevelBraces}, `{{.DT.Format "2006/01/02 15:04:05.000"}} [{{.Level}}] ` +
-			`({{.CallerFunc}} {{.CallerPkg}}) {{.Message}}`},
+		{[]Option{CallerFile}, `{{.DT.Format "2006/01/02 15:04:05"}} {{.Level}} {{"{"}}{{.CallerFile}}:{{.CallerLine}}{{"}"}} {{.Message}}`},
+		{[]Option{CallerFile, CallerFunc, Msec}, `{{.DT.Format "2006/01/02 15:04:05.000"}} {{.Level}} {{"{"}}{{.CallerFile}}:{{.CallerLine}} {{.CallerFunc}}{{"}"}} {{.Message}}`},
+		{[]Option{CallerFunc, CallerPkg, Msec, LevelBraces}, `{{.DT.Format "2006/01/02 15:04:05.000"}} [{{.Level}}] {{"{"}}{{.CallerFunc}} {{.CallerPkg}}{{"}"}} {{.Message}}`},
 	}
 
 	for n, tt := range tbl {
@@ -254,6 +252,14 @@ func TestLoggerWithTrace(t *testing.T) {
 	rerr.Reset()
 	l.Logf("[TRACE] something 123 %s", "err")
 	assert.Equal(t, "", rout.String())
+
+	l = New(Trace, Out(rout), Err(rerr), CallerPkg)
+	l.now = func() time.Time { return time.Date(2018, 1, 7, 13, 2, 34, 123000000, time.Local) }
+	rout.Reset()
+	rerr.Reset()
+	l.Logf("[TRACE] something 123 %s", "err")
+	assert.Equal(t, "2018/01/07 13:02:34 TRACE {lgr} something 123 err\n", rout.String())
+
 }
 
 func TestLoggerWithInvalidTemplate(t *testing.T) {
