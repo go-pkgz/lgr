@@ -1,3 +1,11 @@
+// Package lgr provides a simple logger with some extras. Primary way to log is Logf method.
+// The logger's output can be customized in 2 ways:
+//   - by passing formatting template, i.e. lgr.New(lgr.Format(lgr.Short))
+//   - by setting individual formatting flags, i.e. lgr.New(lgr.Msec, lgr.CallerFunc)
+// Leveled output works for messages based on level prefix, i.e. Logf("INFO some message") means INFO level.
+// Debug and trace levels can be filtered based on lgr.Trace and lgr.Debug options.
+// ERROR, FATAL and PANIC levels send to err as well. Both FATAL and PANIC also print stack trace and terminate caller application with os.Exit(1)
+
 package lgr
 
 import (
@@ -34,7 +42,7 @@ type Logger struct {
 	callerFunc     bool      // reports caller function name, i.e. foo/bar.myFunc
 	callerPkg      bool      // reports caller package name
 	levelBraces    bool      // encloses level with [], i.e. [INFO]
-	callerDepth    int       // how many stack frames to skip
+	callerDepth    int       // how many stack frames to skip, relative to the real (reported frame)
 	format         string    // layout template
 
 	// internal use
@@ -51,6 +59,7 @@ type Logger struct {
 type nowFn func() time.Time
 type panicFn func()
 
+// layout holds all parts to construct the final message with template
 type layout struct {
 	DT         time.Time
 	Level      string
@@ -61,8 +70,8 @@ type layout struct {
 	CallerLine int
 }
 
-// New makes new leveled logger. Accepts dbg flag turing on info about the caller and allowing DEBUG messages.
-// Two writers can be passed optionally - first for out and second for err
+// New makes new leveled logger. By default writes to stdout/stderr.
+// default format: 2018/01/07 13:02:34.123 DEBUG some message 123
 func New(options ...Option) *Logger {
 
 	res := Logger{
@@ -101,9 +110,9 @@ func New(options ...Option) *Logger {
 }
 
 // Logf implements L interface to output with printf style.
-// Each line prefixed with ts, level and optionally (dbg mode only) by caller info.
+// DEBUG and TRACE filtered out by dbg and trace flags.
 // ERROR and FATAL also send the same line to err writer.
-// FATAL adds runtime stack and os.exit(1), like panic.
+// FATAL and PANIC adds runtime stack and os.exit(1), like panic.
 func (l *Logger) Logf(format string, args ...interface{}) {
 	// to align call depth between (*Logger).Logf() and, for example, Printf()
 	l.logf(format, args...)
@@ -120,7 +129,7 @@ func (l *Logger) logf(format string, args ...interface{}) {
 	}
 
 	ci := callerInfo{}
-	if l.callerOn { // optimization to avlod expensive caller evaluation if not in template
+	if l.callerOn { // optimization to avoid expensive caller evaluation if caller info not in the template
 		ci = l.reportCaller(l.callerDepth)
 	}
 
@@ -142,7 +151,7 @@ func (l *Logger) logf(format string, args ...interface{}) {
 	buf.WriteString("\n")
 
 	data := buf.Bytes()
-	if l.levelBracesOn {
+	if l.levelBracesOn { // rearrange space in short levels
 		data = bytes.Replace(data, []byte("[WARN ]"), []byte("[WARN] "), 1)
 		data = bytes.Replace(data, []byte("[INFO ]"), []byte("[INFO] "), 1)
 	}
@@ -152,12 +161,12 @@ func (l *Logger) logf(format string, args ...interface{}) {
 
 	// write to err as well for high levels
 	switch lv {
+	case "ERROR":
+		_, _ = l.stderr.Write(data)
 	case "PANIC", "FATAL":
 		_, _ = l.stderr.Write(data)
 		_, _ = l.stderr.Write(getDump())
 		l.fatal()
-	case "ERROR":
-		_, _ = l.stderr.Write(data)
 	}
 
 	l.lock.Unlock()
@@ -221,6 +230,12 @@ func (l *Logger) reportCaller(calldepth int) (res callerInfo) {
 // make template from options flag
 func (l *Logger) templateFromOptions() (res string) {
 
+	const (
+		// escape { and } from templates
+		openCallerBrace  = `{{"{"}}`
+		closeCallerBrace = `{{"}"}}`
+	)
+
 	orElse := func(flag bool, value string, elseValue string) string {
 		if flag {
 			return value
@@ -244,7 +259,7 @@ func (l *Logger) templateFromOptions() (res string) {
 		if v := orElse(l.callerPkg, `{{.CallerPkg}}`, ""); v != "" {
 			callerParts = append(callerParts, v)
 		}
-		parts = append(parts, `{{"{"}}`+strings.Join(callerParts, " ")+`{{"}"}}`)
+		parts = append(parts, openCallerBrace+strings.Join(callerParts, " ")+closeCallerBrace)
 	}
 	parts = append(parts, "{{.Message}}")
 	return strings.Join(parts, " ")
@@ -339,7 +354,7 @@ func CallerPkg(l *Logger) {
 	l.callerPkg = true
 }
 
-// LevelBraces adds [] to level
+// LevelBraces surrounds level with [], i.e. [INFO]
 func LevelBraces(l *Logger) {
 	l.levelBraces = true
 }
