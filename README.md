@@ -32,7 +32,7 @@ _Without `lgr.Caller*` it will drop `{caller}` part_
 
 `lgr.New` call accepts functional options:
 
-- `lgr.Debug` - turn debug mode on to allow messages with "DEBUG" level (filtered overwise)
+- `lgr.Debug` - turn debug mode on to allow messages with "DEBUG" level (filtered otherwise)
 - `lgr.Out(io.Writer)` - sets the output writer, default `os.Stdout`
 - `lgr.Err(io.Writer)` - sets the error writer, default `os.Stderr`
 - `lgr.CallerFile` - adds the caller file info
@@ -41,6 +41,8 @@ _Without `lgr.Caller*` it will drop `{caller}` part_
 - `lgr.LevelBraces` - wraps levels with "[" and "]"
 - `lgr.Msec` - adds milliseconds to timestamp
 - `lgr.Format` - sets custom template, overwrite all other formatting modifiers.
+
+example: `l := lgr.New(lgr.Debug, lgr.Msec)`
 
 #### formatting templates:
 
@@ -60,7 +62,7 @@ User can make a custom template and pass it directly to `lgr.Format`. For exampl
 ```go    
     lgr.Format(`{{.Level}} - {{.DT.Format "2006-01-02T15:04:05Z07:00") - {{.CallerPkg}} - {{.Message}}`)
 ```
-)
+
     
 ### levels
 
@@ -70,8 +72,9 @@ User can make a custom template and pass it directly to `lgr.Format`. For exampl
 - `DEBUG` will be filtered unless `lgr.Debug` or `lgr.Trace` options defined
 - `INFO` and `WARN` don't have any special behavior attached
 - `ERROR` sends messages to both out and err writers
-- `PANIC` and `FATAL` send messages to both out and err writers. In addition sends dump of callers and runtime info to err only, and calls `os.Exit(1)`.
-
+- `FATAL` and send messages to both out and err writers and exit(1)
+- `PANIC` does the same as `FATAL` but in addition sends dump of callers and runtime info to err.
+ 
 ### adaptors
 
 `lgr` logger can be converted to `io.Writer` or `*log.Logger`
@@ -79,7 +82,7 @@ User can make a custom template and pass it directly to `lgr.Format`. For exampl
 - `lgr.ToWriter(l lgr.L, level string) io.Writer` - makes io.Writer forwarding write ops to underlying `lgr.L`
 - `lgr.ToStdLogger(l lgr.L, level string) *log.Logger` - makes standard logger on top of `lgr.L`
 
-_`level` parameter is optional, if defined will enforce the level._    
+_`level` parameter is optional, if defined (non-empty) will enforce the level._    
   
 ### global logger
 
