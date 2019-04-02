@@ -136,23 +136,43 @@ func TestLoggerWithCallerDepth(t *testing.T) {
 		"func2) something 123 err\n", rout.String())
 }
 
-func TestLogger_templateFromOptions(t *testing.T) {
+func TestLogger_formatWithOptions(t *testing.T) {
 	tbl := []struct {
-		opts []Option
-		res  string
+		opts  []Option
+		elems layout
+		res   string
 	}{
-		{[]Option{}, `{{.DT.Format "2006/01/02 15:04:05"}} {{.Level}} {{.Message}}`},
-		{[]Option{Msec}, `{{.DT.Format "2006/01/02 15:04:05.000"}} {{.Level}} {{.Message}}`},
-		{[]Option{Msec, LevelBraces}, `{{.DT.Format "2006/01/02 15:04:05.000"}} [{{.Level}}] {{.Message}}`},
-		{[]Option{CallerFile}, `{{.DT.Format "2006/01/02 15:04:05"}} {{.Level}} {{"{"}}{{.CallerFile}}:{{.CallerLine}}{{"}"}} {{.Message}}`},
-		{[]Option{CallerFile, CallerFunc, Msec}, `{{.DT.Format "2006/01/02 15:04:05.000"}} {{.Level}} {{"{"}}{{.CallerFile}}:{{.CallerLine}} {{.CallerFunc}}{{"}"}} {{.Message}}`},
-		{[]Option{CallerFunc, CallerPkg, Msec, LevelBraces}, `{{.DT.Format "2006/01/02 15:04:05.000"}} [{{.Level}}] {{"{"}}{{.CallerFunc}} {{.CallerPkg}}{{"}"}} {{.Message}}`},
+		{
+			[]Option{},
+			layout{DT: time.Date(2018, 1, 7, 13, 2, 34, 0, time.Local), Message: "blah blah", Level: "INFO "},
+			"2018/01/07 13:02:34 INFO  blah blah",
+		},
+		{
+			[]Option{Msec},
+			layout{DT: time.Date(2018, 1, 7, 13, 2, 34, 0, time.Local), Message: "blah blah", Level: "DEBUG"},
+			"2018/01/07 13:02:34.000 DEBUG blah blah",
+		},
+		{
+			[]Option{Msec, LevelBraces},
+			layout{DT: time.Date(2018, 1, 7, 13, 2, 34, 0, time.Local), Message: "blah blah", Level: "DEBUG"},
+			"2018/01/07 13:02:34.000 [DEBUG] blah blah",
+		},
+		{
+			[]Option{CallerFile, Msec},
+			layout{DT: time.Date(2018, 1, 7, 13, 2, 34, 0, time.Local), Message: "blah blah", Level: "DEBUG", CallerFile: "file1.go", CallerLine: 12},
+			"2018/01/07 13:02:34.000 DEBUG {file1.go:12} blah blah",
+		},
+		{
+			[]Option{CallerFunc, CallerPkg},
+			layout{DT: time.Date(2018, 1, 7, 13, 2, 34, 0, time.Local), Message: "blah blah", Level: "DEBUG", CallerFunc: "func1", CallerPkg: "pkg"},
+			"2018/01/07 13:02:34 DEBUG {func1 pkg} blah blah",
+		},
 	}
 
 	for n, tt := range tbl {
 		l := New(tt.opts...)
 		t.Run(strconv.Itoa(n), func(t *testing.T) {
-			assert.Equal(t, tt.res, l.templateFromOptions())
+			assert.Equal(t, tt.res, l.formatWithOptions(tt.elems))
 		})
 	}
 }
@@ -292,9 +312,20 @@ func TestLoggerOverwriteFormat(t *testing.T) {
 	assert.Equal(t, "2018/01/07 13:02:34 INFO  something 123 err\n", rout.String(), "short format enforced")
 }
 
-func BenchmarkNoDbg(b *testing.B) {
+func BenchmarkNoDbgNoFormat(b *testing.B) {
 	rout, rerr := bytes.NewBuffer([]byte{}), bytes.NewBuffer([]byte{})
 	l := New(Out(rout), Err(rerr))
+	l.now = func() time.Time { return time.Date(2018, 1, 7, 13, 2, 34, 0, time.Local) }
+
+	e := errors.New("some error")
+	for n := 0; n < b.N; n++ {
+		l.Logf("[INFO] test test 123 debug message #%d, %v", n, e)
+	}
+}
+
+func BenchmarkNoDbgFormat(b *testing.B) {
+	rout, rerr := bytes.NewBuffer([]byte{}), bytes.NewBuffer([]byte{})
+	l := New(Out(rout), Err(rerr), Format(Short))
 	l.now = func() time.Time { return time.Date(2018, 1, 7, 13, 2, 34, 0, time.Local) }
 
 	e := errors.New("some error")

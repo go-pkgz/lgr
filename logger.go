@@ -15,6 +15,7 @@ import (
 	"os"
 	"path"
 	"runtime"
+	"strconv"
 	"strings"
 	"sync"
 	"text/template"
@@ -85,27 +86,25 @@ func New(options ...Option) *Logger {
 		opt(&res)
 	}
 
-	var err error
-	if res.format == "" {
-		res.format = res.templateFromOptions()
+	if res.format != "" {
+		var err error
+		res.templ, err = template.New("lgr").Parse(res.format)
+		if err != nil {
+			fmt.Printf("invalid template %s, error %v. switched to %s\n", res.format, err, Short)
+			res.format = Short
+			res.templ = template.Must(template.New("lgrDefault").Parse(Short))
+		}
+
+		buf := bytes.Buffer{}
+		if err = res.templ.Execute(&buf, layout{}); err != nil {
+			fmt.Printf("failed to execute template %s, error %v. switched to %s\n", res.format, err, Short)
+			res.format = Short
+			res.templ = template.Must(template.New("lgrDefault").Parse(Short))
+		}
 	}
 
-	res.templ, err = template.New("lgr").Parse(res.format)
-	if err != nil {
-		fmt.Printf("invalid template %s, error %v. switched to %s\n", res.format, err, Short)
-		res.format = Short
-		res.templ = template.Must(template.New("lgrDefault").Parse(Short))
-	}
-
-	buf := bytes.Buffer{}
-	if err = res.templ.Execute(&buf, layout{}); err != nil {
-		fmt.Printf("failed to execute template %s, error %v. switched to %s\n", res.format, err, Short)
-		res.format = Short
-		res.templ = template.Must(template.New("lgrDefault").Parse(Short))
-	}
-
-	res.callerOn = strings.Contains(res.format, "{{.Caller")
-	res.levelBracesOn = strings.Contains(res.format, "[{{.Level}}]")
+	res.callerOn = strings.Contains(res.format, "{{.Caller") || res.callerFile || res.callerFunc || res.callerPkg
+	res.levelBracesOn = strings.Contains(res.format, "[{{.Level}}]") || res.levelBraces
 	return &res
 }
 
@@ -128,7 +127,7 @@ func (l *Logger) logf(format string, args ...interface{}) {
 		return
 	}
 
-	ci := callerInfo{}
+	var ci callerInfo
 	if l.callerOn { // optimization to avoid expensive caller evaluation if caller info not in the template
 		ci = l.reportCaller(l.callerDepth)
 	}
@@ -143,14 +142,20 @@ func (l *Logger) logf(format string, args ...interface{}) {
 		CallerLine: ci.Line,
 	}
 
-	buf := bytes.Buffer{}
-	err := l.templ.Execute(&buf, elems) // once constructed, a template may be executed safely in parallel.
-	if err != nil {
-		fmt.Printf("failed to execute template, %v\n", err) // should never happen
+	var data []byte
+	if l.format != "" {
+		buf := bytes.Buffer{}
+		err := l.templ.Execute(&buf, elems) // once constructed, a template may be executed safely in parallel.
+		if err != nil {
+			fmt.Printf("failed to execute template, %v\n", err) // should never happen
+		}
+		data = buf.Bytes()
+	} else {
+		// optimized formatter, avoids templates
+		data = []byte(l.formatWithOptions(elems))
 	}
-	buf.WriteString("\n")
+	data = append(data, '\n')
 
-	data := buf.Bytes()
 	if l.levelBracesOn { // rearrange space in short levels
 		data = bytes.Replace(data, []byte("[WARN ]"), []byte("[WARN] "), 1)
 		data = bytes.Replace(data, []byte("[INFO ]"), []byte("[INFO] "), 1)
@@ -230,41 +235,38 @@ func (l *Logger) reportCaller(calldepth int) (res callerInfo) {
 	return res
 }
 
-// make template from option flags
-func (l *Logger) templateFromOptions() (res string) {
+// speed-optimized version of formatter, used with individual options only, i.e. without Format call
+func (l *Logger) formatWithOptions(elems layout) (res string) {
 
-	const (
-		// escape { and } from templates to allow "{some/blah}" output for caller
-		openCallerBrace  = `{{"{"}}`
-		closeCallerBrace = `{{"}"}}`
-	)
-
-	orElse := func(flag bool, value string, elseValue string) string {
+	orElse := func(flag bool, fnTrue func() string, fnFalse func() string) string {
 		if flag {
-			return value
+			return fnTrue()
 		}
-		return elseValue
+		return fnFalse()
 	}
 
 	var parts []string
 
-	parts = append(parts, orElse(l.msec, `{{.DT.Format "2006/01/02 15:04:05.000"}}`, `{{.DT.Format "2006/01/02 15:04:05"}}`))
-	parts = append(parts, orElse(l.levelBraces, `[{{.Level}}]`, `{{.Level}}`))
+	parts = append(parts, orElse(l.msec,
+		func() string { return elems.DT.Format("2006/01/02 15:04:05.000") }, func() string { return elems.DT.Format("2006/01/02 15:04:05") }))
+
+	parts = append(parts, orElse(l.levelBraces, func() string { return `[` + elems.Level + `]` }, func() string { return elems.Level }))
 
 	if l.callerFile || l.callerFunc || l.callerPkg {
 		var callerParts []string
-		if v := orElse(l.callerFile, `{{.CallerFile}}:{{.CallerLine}}`, ""); v != "" {
+		if v := orElse(l.callerFile, func() string { return elems.CallerFile + ":" + strconv.Itoa(elems.CallerLine) }, func() string { return "" }); v != "" {
 			callerParts = append(callerParts, v)
 		}
-		if v := orElse(l.callerFunc, `{{.CallerFunc}}`, ""); v != "" {
+		if v := orElse(l.callerFunc, func() string { return elems.CallerFunc }, func() string { return "" }); v != "" {
 			callerParts = append(callerParts, v)
 		}
-		if v := orElse(l.callerPkg, `{{.CallerPkg}}`, ""); v != "" {
+		if v := orElse(l.callerPkg, func() string { return elems.CallerPkg }, func() string { return "" }); v != "" {
 			callerParts = append(callerParts, v)
 		}
-		parts = append(parts, openCallerBrace+strings.Join(callerParts, " ")+closeCallerBrace)
+		parts = append(parts, "{"+strings.Join(callerParts, " ")+"}")
 	}
-	parts = append(parts, "{{.Message}}")
+
+	parts = append(parts, elems.Message)
 	return strings.Join(parts, " ")
 }
 
