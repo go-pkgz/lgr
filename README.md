@@ -63,6 +63,8 @@ User can make a custom template and pass it directly to `lgr.Format`. For exampl
     lgr.Format(`{{.Level}} - {{.DT.Format "2006-01-02T15:04:05Z07:00"}} - {{.CallerPkg}} - {{.Message}}`)
 ```
 
+_Note: formatter (predefined or custom) adds measurable overhead - the cost will depend on the version of Go, but is between 30
+ and 50% in recent tests with 1.12. You can validate this in your environment via benchmarks: `go test -bench=.`_
     
 ### levels
 
@@ -89,4 +91,3 @@ _`level` parameter is optional, if defined (non-empty) will enforce the level._
 Users **should avoid** global logger and pass the concrete logger as a dependency. However, in some cases a global logger may be needed, for example migration from stdlib `log` to `lgr`. For such cases `log "github.com/go-pkgz/lgr"` can be imported instead of `log` package.
 
 Global logger provides `lgr.Printf`, `lgr.Print` and `lgr.Fatalf` functions. User can customize the logger by calling `lgr.Setup(options ...)`. The instance of this logger can be retrieved with `lgr.Default()`
- 
