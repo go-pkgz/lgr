@@ -1,10 +1,11 @@
 // Package lgr provides a simple logger with some extras. Primary way to log is Logf method.
 // The logger's output can be customized in 2 ways:
-//   - by passing formatting template, i.e. lgr.New(lgr.Format(lgr.Short))
 //   - by setting individual formatting flags, i.e. lgr.New(lgr.Msec, lgr.CallerFunc)
-// Leveled output works for messages based on level prefix, i.e. Logf("INFO some message") means INFO level.
+//   - by passing formatting template, i.e. lgr.New(lgr.Format(lgr.Short))
+// Leveled output works for messages based on text prefix, i.e. Logf("INFO some message") means INFO level.
 // Debug and trace levels can be filtered based on lgr.Trace and lgr.Debug options.
-// ERROR, FATAL and PANIC levels send to err as well. Both FATAL and PANIC also print stack trace and terminate caller application with os.Exit(1)
+// ERROR, FATAL and PANIC levels send to err as well. FATAL terminate caller application with os.Exit(1)
+// and PANIC also prints stack trace.
 
 package lgr
 
@@ -60,7 +61,7 @@ type Logger struct {
 type nowFn func() time.Time
 type panicFn func()
 
-// layout holds all parts to construct the final message with template
+// layout holds all parts to construct the final message with template or with individual flags
 type layout struct {
 	DT         time.Time
 	Level      string
@@ -87,6 +88,7 @@ func New(options ...Option) *Logger {
 	}
 
 	if res.format != "" {
+		// formatter defined
 		var err error
 		res.templ, err = template.New("lgr").Parse(res.format)
 		if err != nil {
@@ -103,8 +105,10 @@ func New(options ...Option) *Logger {
 		}
 	}
 
+	// set *On flags once for optimization on multiple Logf calls
 	res.callerOn = strings.Contains(res.format, "{{.Caller") || res.callerFile || res.callerFunc || res.callerPkg
 	res.levelBracesOn = strings.Contains(res.format, "[{{.Level}}]") || res.levelBraces
+
 	return &res
 }
 
@@ -135,7 +139,7 @@ func (l *Logger) logf(format string, args ...interface{}) {
 	elems := layout{
 		DT:         l.now(),
 		Level:      l.formatLevel(lv),
-		Message:    strings.TrimSuffix(msg, "\n"),
+		Message:    strings.TrimSuffix(msg, "\n"), // output adds EOL, trim from the message if passed
 		CallerFunc: ci.FuncName,
 		CallerFile: ci.File,
 		CallerPkg:  ci.Pkg,
@@ -143,16 +147,15 @@ func (l *Logger) logf(format string, args ...interface{}) {
 	}
 
 	var data []byte
-	if l.format != "" {
+	if l.format == "" {
+		data = []byte(l.formatWithOptions(elems))
+	} else {
 		buf := bytes.Buffer{}
 		err := l.templ.Execute(&buf, elems) // once constructed, a template may be executed safely in parallel.
 		if err != nil {
 			fmt.Printf("failed to execute template, %v\n", err) // should never happen
 		}
 		data = buf.Bytes()
-	} else {
-		// optimized formatter, avoids templates
-		data = []byte(l.formatWithOptions(elems))
 	}
 	data = append(data, '\n')
 
@@ -244,6 +247,7 @@ func (l *Logger) formatWithOptions(elems layout) (res string) {
 		}
 		return fnFalse()
 	}
+	nothing := func() string { return "" }
 
 	var parts []string
 
@@ -254,13 +258,14 @@ func (l *Logger) formatWithOptions(elems layout) (res string) {
 
 	if l.callerFile || l.callerFunc || l.callerPkg {
 		var callerParts []string
-		if v := orElse(l.callerFile, func() string { return elems.CallerFile + ":" + strconv.Itoa(elems.CallerLine) }, func() string { return "" }); v != "" {
+		v := orElse(l.callerFile, func() string { return elems.CallerFile + ":" + strconv.Itoa(elems.CallerLine) }, nothing)
+		if v != "" {
 			callerParts = append(callerParts, v)
 		}
-		if v := orElse(l.callerFunc, func() string { return elems.CallerFunc }, func() string { return "" }); v != "" {
+		if v := orElse(l.callerFunc, func() string { return elems.CallerFunc }, nothing); v != "" {
 			callerParts = append(callerParts, v)
 		}
-		if v := orElse(l.callerPkg, func() string { return elems.CallerPkg }, func() string { return "" }); v != "" {
+		if v := orElse(l.callerPkg, func() string { return elems.CallerPkg }, nothing); v != "" {
 			callerParts = append(callerParts, v)
 		}
 		parts = append(parts, "{"+strings.Join(callerParts, " ")+"}")
@@ -272,10 +277,6 @@ func (l *Logger) formatWithOptions(elems layout) (res string) {
 
 // formatLevel aligns level to 5 chars
 func (l *Logger) formatLevel(lv string) string {
-
-	if lv == "" {
-		return ""
-	}
 
 	spaces := ""
 	if len(lv) == 4 {

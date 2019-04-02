@@ -64,7 +64,7 @@ User can make a custom template and pass it directly to `lgr.Format`. For exampl
 ```
 
 _Note: formatter (predefined or custom) adds measurable overhead - the cost will depend on the version of Go, but is between 30
- and 50% in recent tests with 1.12. You can validate this in your environment via benchmarks: `go test -bench=.`_
+ and 50% in recent tests with 1.12. You can validate this in your environment via benchmarks: `go test -bench=. -run=Bench`_
     
 ### levels
 

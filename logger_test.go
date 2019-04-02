@@ -159,12 +159,14 @@ func TestLogger_formatWithOptions(t *testing.T) {
 		},
 		{
 			[]Option{CallerFile, Msec},
-			layout{DT: time.Date(2018, 1, 7, 13, 2, 34, 0, time.Local), Message: "blah blah", Level: "DEBUG", CallerFile: "file1.go", CallerLine: 12},
+			layout{DT: time.Date(2018, 1, 7, 13, 2, 34, 0, time.Local), Message: "blah blah", Level: "DEBUG",
+				CallerFile: "file1.go", CallerLine: 12},
 			"2018/01/07 13:02:34.000 DEBUG {file1.go:12} blah blah",
 		},
 		{
 			[]Option{CallerFunc, CallerPkg},
-			layout{DT: time.Date(2018, 1, 7, 13, 2, 34, 0, time.Local), Message: "blah blah", Level: "DEBUG", CallerFunc: "func1", CallerPkg: "pkg"},
+			layout{DT: time.Date(2018, 1, 7, 13, 2, 34, 0, time.Local), Message: "blah blah", Level: "DEBUG",
+				CallerFunc: "func1", CallerPkg: "pkg"},
 			"2018/01/07 13:02:34 DEBUG {func1 pkg} blah blah",
 		},
 	}
@@ -334,7 +336,18 @@ func BenchmarkNoDbgFormat(b *testing.B) {
 	}
 }
 
-func BenchmarkWithDbg(b *testing.B) {
+func BenchmarkWithDbgNoFormat(b *testing.B) {
+	rout, rerr := bytes.NewBuffer([]byte{}), bytes.NewBuffer([]byte{})
+	l := New(Debug, Out(rout), Err(rerr), CallerFile, CallerFunc, CallerPkg)
+	l.now = func() time.Time { return time.Date(2018, 1, 7, 13, 2, 34, 0, time.Local) }
+
+	e := errors.New("some error")
+	for n := 0; n < b.N; n++ {
+		l.Logf("INFO test test 123 debug message #%d, %v", n, e)
+	}
+}
+
+func BenchmarkWithDbgAndFormat(b *testing.B) {
 	rout, rerr := bytes.NewBuffer([]byte{}), bytes.NewBuffer([]byte{})
 	l := New(Debug, Format(FullDebug), Out(rout), Err(rerr))
 	l.now = func() time.Time { return time.Date(2018, 1, 7, 13, 2, 34, 0, time.Local) }
