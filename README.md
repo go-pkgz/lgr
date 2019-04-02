@@ -60,7 +60,7 @@ Several predefined templates provided and can be passed directly to `lgr.Format`
 User can make a custom template and pass it directly to `lgr.Format`. For example:
 
 ```go    
-    lgr.Format(`{{.Level}} - {{.DT.Format "2006-01-02T15:04:05Z07:00") - {{.CallerPkg}} - {{.Message}}`)
+    lgr.Format(`{{.Level}} - {{.DT.Format "2006-01-02T15:04:05Z07:00"}} - {{.CallerPkg}} - {{.Message}}`)
 ```
 
     
