@@ -224,7 +224,7 @@ func (l *Logger) reportCaller(calldepth int) (res callerInfo) {
 	}
 
 	_, pkgInfo := path.Split(path.Dir(filePath))
-	res.Pkg = pkgInfo
+	res.Pkg = strings.Split(pkgInfo, "@")[0] // remove version from package name
 
 	res.File = filePath
 	if pathElems := strings.Split(filePath, "/"); len(pathElems) > 2 {
