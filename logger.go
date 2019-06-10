@@ -170,12 +170,18 @@ func (l *Logger) logf(format string, args ...interface{}) {
 	// write to err as well for high levels, exit(1) on fatal and panic and dump stack on panic level
 	switch lv {
 	case "ERROR":
-		_, _ = l.stderr.Write(data)
+		if l.stderr != l.stdout {
+			_, _ = l.stderr.Write(data)
+		}
 	case "FATAL":
-		_, _ = l.stderr.Write(data)
+		if l.stderr != l.stdout {
+			_, _ = l.stderr.Write(data)
+		}
 		l.fatal()
 	case "PANIC":
-		_, _ = l.stderr.Write(data)
+		if l.stderr != l.stdout {
+			_, _ = l.stderr.Write(data)
+		}
 		_, _ = l.stderr.Write(getDump())
 		l.fatal()
 	}

@@ -216,6 +216,22 @@ func TestLoggerWithPanic(t *testing.T) {
 	assert.True(t, strings.Contains(rerr.String(), "go-pkgz/lgr/logger.go:"))
 }
 
+func TestLoggerWithErrorSameOutputs(t *testing.T) {
+	fatalCalls := 0
+	rout := bytes.NewBuffer([]byte{})
+	l := New(Debug, Format(FuncDebug), Out(rout), Err(rout))
+	l.fatal = func() { fatalCalls++ }
+	l.now = func() time.Time { return time.Date(2018, 1, 7, 13, 2, 34, 0, time.Local) }
+
+	l.Logf("ERROR oh my, error now! %v", errors.New("bad thing happened"))
+	assert.Equal(t, "2018/01/07 13:02:34.000 ERROR (lgr.TestLoggerWithErrorSameOutputs) oh my, error now! bad thing happened\n", rout.String())
+
+	rout.Reset()
+	l.Logf("FATAL oh my, error now! %v", errors.New("bad thing happened"))
+	assert.Equal(t, "2018/01/07 13:02:34.000 FATAL (lgr.TestLoggerWithErrorSameOutputs) oh my, error now! bad thing happened\n", rout.String())
+	assert.Equal(t, 1, fatalCalls)
+}
+
 func TestLoggerConcurrent(t *testing.T) {
 	rout, rerr := bytes.NewBuffer([]byte{}), bytes.NewBuffer([]byte{})
 	l := New(Debug, Out(rout), Err(rerr))
