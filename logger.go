@@ -303,7 +303,7 @@ func (l *Logger) extractLevel(line string) (level, msg string) {
 			return lv, line[len(lv)+1:]
 		}
 		if strings.HasPrefix(line, "["+lv+"]") {
-			return lv, line[len(lv)+3:]
+			return lv, strings.TrimSpace(line[len("["+lv+"]"):])
 		}
 	}
 	return "INFO", line
