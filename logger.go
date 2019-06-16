@@ -300,10 +300,10 @@ func (l *Logger) formatLevel(lv string) string {
 func (l *Logger) extractLevel(line string) (level, msg string) {
 	for _, lv := range levels {
 		if strings.HasPrefix(line, lv) {
-			return lv, line[len(lv)+1:]
+			return lv, strings.TrimSpace(line[len(lv):])
 		}
 		if strings.HasPrefix(line, "["+lv+"]") {
-			return lv, line[len(lv)+3:]
+			return lv, strings.TrimSpace(line[len("["+lv+"]"):])
 		}
 	}
 	return "INFO", line
