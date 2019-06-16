@@ -330,6 +330,36 @@ func TestLoggerOverwriteFormat(t *testing.T) {
 	assert.Equal(t, "2018/01/07 13:02:34 INFO  something 123 err\n", rout.String(), "short format enforced")
 }
 
+func TestLoggerNoSpaceLevel(t *testing.T) {
+	tbl := []struct {
+		format     string
+		args       []interface{}
+		rout, rerr string
+	}{
+		{"aaa", []interface{}{}, "2018/01/07 13:02:34.000 INFO  aaa\n", ""},
+		{"DEBUGsomething 123 %s", []interface{}{"aaa"}, "", ""},
+		{"[DEBUG]something 123 %s", []interface{}{"aaa"}, "", ""},
+		{"INFOsomething 123 %s", []interface{}{"aaa"}, "2018/01/07 13:02:34.000 INFO  something 123 aaa\n", ""},
+		{"[INFO]something 123 %s", []interface{}{"aaa"}, "2018/01/07 13:02:34.000 INFO  something 123 aaa\n", ""},
+		{"[INFO]something 123 %s", []interface{}{"aaa\n"}, "2018/01/07 13:02:34.000 INFO  something 123 aaa\n", ""},
+		{"blah something 123 %s", []interface{}{"aaa"}, "2018/01/07 13:02:34.000 INFO  blah something 123 aaa\n", ""},
+		{"WARNsomething 123 %s", []interface{}{"aaa"}, "2018/01/07 13:02:34.000 WARN  something 123 aaa\n", ""},
+		{"ERRORsomething 123 %s", []interface{}{"aaa"}, "2018/01/07 13:02:34.000 ERROR something 123 aaa\n",
+			"2018/01/07 13:02:34.000 ERROR something 123 aaa\n"},
+	}
+	rout, rerr := bytes.NewBuffer([]byte{}), bytes.NewBuffer([]byte{})
+	l := New(Out(rout), Err(rerr), Msec)
+	l.now = func() time.Time { return time.Date(2018, 1, 7, 13, 2, 34, 0, time.Local) }
+	for i, tt := range tbl {
+		rout.Reset()
+		rerr.Reset()
+		t.Run(fmt.Sprintf("check-%d", i), func(t *testing.T) {
+			l.Logf(tt.format, tt.args...)
+			assert.Equal(t, tt.rout, rout.String())
+			assert.Equal(t, tt.rerr, rerr.String())
+		})
+	}
+}
 func BenchmarkNoDbgNoFormat(b *testing.B) {
 	rout, rerr := bytes.NewBuffer([]byte{}), bytes.NewBuffer([]byte{})
 	l := New(Out(rout), Err(rerr))
