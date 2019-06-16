@@ -336,16 +336,12 @@ func TestLoggerNoSpaceLevel(t *testing.T) {
 		args       []interface{}
 		rout, rerr string
 	}{
-		{"aaa", []interface{}{}, "2018/01/07 13:02:34.000 INFO  aaa\n", ""},
-		{"DEBUGsomething 123 %s", []interface{}{"aaa"}, "", ""},
-		{"[DEBUG]something 123 %s", []interface{}{"aaa"}, "", ""},
-		{"INFOsomething 123 %s", []interface{}{"aaa"}, "2018/01/07 13:02:34.000 INFO  something 123 aaa\n", ""},
-		{"[INFO]something 123 %s", []interface{}{"aaa"}, "2018/01/07 13:02:34.000 INFO  something 123 aaa\n", ""},
-		{"[INFO]something 123 %s", []interface{}{"aaa\n"}, "2018/01/07 13:02:34.000 INFO  something 123 aaa\n", ""},
-		{"blah something 123 %s", []interface{}{"aaa"}, "2018/01/07 13:02:34.000 INFO  blah something 123 aaa\n", ""},
-		{"WARNsomething 123 %s", []interface{}{"aaa"}, "2018/01/07 13:02:34.000 WARN  something 123 aaa\n", ""},
-		{"ERRORsomething 123 %s", []interface{}{"aaa"}, "2018/01/07 13:02:34.000 ERROR something 123 aaa\n",
-			"2018/01/07 13:02:34.000 ERROR something 123 aaa\n"},
+		{"INFOsomething 123 %s", []interface{}{"aaa1"}, "2018/01/07 13:02:34.000 INFO  something 123 aaa1\n", ""},
+		{"[INFO]something 123 %s", []interface{}{"aaa1"}, "2018/01/07 13:02:34.000 INFO  something 123 aaa1\n", ""},
+		{"[INFO]something 123 %s", []interface{}{"aaa1\n"}, "2018/01/07 13:02:34.000 INFO  something 123 aaa1\n", ""},
+		{"WARNsomething 123 %s", []interface{}{"aaa1"}, "2018/01/07 13:02:34.000 WARN  something 123 aaa1\n", ""},
+		{"ERRORsomething 123 %s", []interface{}{"aaa1"}, "2018/01/07 13:02:34.000 ERROR something 123 aaa1\n",
+			"2018/01/07 13:02:34.000 ERROR something 123 aaa1\n"},
 	}
 	rout, rerr := bytes.NewBuffer([]byte{}), bytes.NewBuffer([]byte{})
 	l := New(Out(rout), Err(rerr), Msec)
