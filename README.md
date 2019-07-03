@@ -33,6 +33,7 @@ _Without `lgr.Caller*` it will drop `{caller}` part_
 `lgr.New` call accepts functional options:
 
 - `lgr.Debug` - turn debug mode on to allow messages with "DEBUG" level (filtered otherwise)
+- `lgr.Trace` - turn trace mode on to allow messages with "TRACE" abd "DEBUG" levels both (filtered otherwise)
 - `lgr.Out(io.Writer)` - sets the output writer, default `os.Stdout`
 - `lgr.Err(io.Writer)` - sets the error writer, default `os.Stderr`
 - `lgr.CallerFile` - adds the caller file info
