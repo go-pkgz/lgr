@@ -73,6 +73,8 @@ func Msec(l *Logger) {
 // Useful to prevent passwords or other sensitive tokens to be logged.
 func Secret(vals ...string) Option {
 	return func(l *Logger) {
-		l.secrets = vals
+		for _, v := range vals {
+			l.secrets = append(l.secrets, []byte(v))
+		}
 	}
 }

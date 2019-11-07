@@ -48,7 +48,7 @@ type Logger struct {
 	levelBraces    bool      // encloses level with [], i.e. [INFO]
 	callerDepth    int       // how many stack frames to skip, relative to the real (reported) frame
 	format         string    // layout template
-	secrets        []string  // sub-strings to secrets by matching
+	secrets        [][]byte  // sub-strings to secrets by matching
 
 	// internal use
 	now           nowFn
@@ -195,7 +195,7 @@ func (l *Logger) logf(format string, args ...interface{}) {
 
 func (l *Logger) hideSecrets(data []byte) []byte {
 	for _, h := range l.secrets {
-		data = bytes.Replace(data, []byte(h), secretReplacement, -1)
+		data = bytes.Replace(data, h, secretReplacement, -1)
 	}
 	return data
 }
