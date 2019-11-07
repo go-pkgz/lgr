@@ -42,6 +42,7 @@ _Without `lgr.Caller*` it will drop `{caller}` part_
 - `lgr.LevelBraces` - wraps levels with "[" and "]"
 - `lgr.Msec` - adds milliseconds to timestamp
 - `lgr.Format` - sets custom template, overwrite all other formatting modifiers.
+- `lgr.Secret(secret ...)` - sets list of the secrets to hide from the logging outputs.
 
 example: `l := lgr.New(lgr.Debug, lgr.Msec)`
 

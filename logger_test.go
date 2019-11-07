@@ -356,6 +356,15 @@ func TestLoggerNoSpaceLevel(t *testing.T) {
 		})
 	}
 }
+
+func TestLoggerHidden(t *testing.T) {
+	rout, rerr := bytes.NewBuffer([]byte{}), bytes.NewBuffer([]byte{})
+	l := New(Out(rout), Err(rerr), Format(Short), Secret("password", "secret"))
+	l.now = func() time.Time { return time.Date(2018, 1, 7, 13, 2, 34, 123000000, time.Local) }
+	l.Logf("INFO something password 123 secret xyz")
+	assert.Equal(t, "2018/01/07 13:02:34 INFO  something ****** 123 ****** xyz\n", rout.String(), "secrets secrets")
+}
+
 func BenchmarkNoDbgNoFormat(b *testing.B) {
 	rout, rerr := bytes.NewBuffer([]byte{}), bytes.NewBuffer([]byte{})
 	l := New(Out(rout), Err(rerr))
