@@ -193,7 +193,7 @@ func TestLoggerWithPanic(t *testing.T) {
 	t.Logf(rerr.String())
 	assert.True(t, strings.HasPrefix(rerr.String(), "2018/01/07 13:02:34.000 PANIC"))
 	assert.Contains(t, rerr.String(), "github.com/go-pkgz/lgr.getDump")
-	assert.Contains(t, rerr.String(), "go-pkgz/lgr/logger.go:")
+	assert.Contains(t, rerr.String(), "/lgr/logger.go:")
 
 	rout.Reset()
 	rerr.Reset()
@@ -213,7 +213,7 @@ func TestLoggerWithPanic(t *testing.T) {
 	assert.Equal(t, "2018/01/07 13:02:34 PANIC oh my, panic now! bad thing happened\n", rout.String())
 	assert.True(t, strings.HasPrefix(rerr.String(), "2018/01/07 13:02:34 PANIC"))
 	assert.Contains(t, rerr.String(), "github.com/go-pkgz/lgr.getDump")
-	assert.Contains(t, rerr.String(), "go-pkgz/lgr/logger.go:")
+	assert.Contains(t, rerr.String(), "/lgr/logger.go:")
 }
 
 func TestLoggerWithErrorSameOutputs(t *testing.T) {
