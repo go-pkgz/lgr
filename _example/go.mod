@@ -1,6 +1,6 @@
 module github.com/go-pkgz/lgr/_example
 
-go 1.12
+go 1.14
 
 require github.com/go-pkgz/lgr v0.0.0
 
