@@ -11,12 +11,14 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestLogger(t *testing.T) {
 	buff := bytes.NewBufferString("")
 	lg := Func(func(format string, args ...interface{}) {
-		fmt.Fprintf(buff, format, args...)
+		_, err := fmt.Fprintf(buff, format, args...)
+		require.NoError(t, err)
 	})
 
 	lg.Logf("blah %s %d something", "str", 123)
@@ -70,7 +72,7 @@ func TestDefaultWithSetup(t *testing.T) {
 	Setup(Out(buff), Debug, Format(FullDebug))
 	def.now = func() time.Time { return time.Date(2018, 1, 7, 13, 2, 34, 0, time.Local) }
 	Printf("[DEBUG] something 123 %s", "xyz")
-	assert.Equal(t, "2018/01/07 13:02:34.000 DEBUG (lgr/interface_test.go:72 lgr.TestDefaultWithSetup) something 123 xyz\n",
+	assert.Equal(t, "2018/01/07 13:02:34.000 DEBUG (lgr/interface_test.go:74 lgr.TestDefaultWithSetup) something 123 xyz\n",
 		buff.String())
 }
 
@@ -79,7 +81,7 @@ func TestDefaultFuncWithSetup(t *testing.T) {
 	Setup(Out(buff), Debug, Format(FullDebug))
 	def.now = func() time.Time { return time.Date(2018, 1, 7, 13, 2, 34, 0, time.Local) }
 	Default().Logf("[INFO] something 123 %s", "xyz")
-	assert.Equal(t, "2018/01/07 13:02:34.000 INFO  (lgr/interface_test.go:81 lgr."+
+	assert.Equal(t, "2018/01/07 13:02:34.000 INFO  (lgr/interface_test.go:83 lgr."+
 		"TestDefaultFuncWithSetup) something 123 xyz\n", buff.String())
 }
 

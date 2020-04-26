@@ -25,6 +25,7 @@ func ToWriter(l L, level string) *Writer {
 	return &Writer{l, level}
 }
 
+// ToStdLogger makes standard logger
 func ToStdLogger(l L, level string) *log.Logger {
 	return log.New(ToWriter(l, level), "", 0)
 }
