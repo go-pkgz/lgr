@@ -88,8 +88,12 @@ _Note: formatter (predefined or custom) adds measurable overhead - the cost will
 
 _`level` parameter is optional, if defined (non-empty) will enforce the level._
 
+- `lgr.SetupStdLogger(opts ...Option)` initializes std global logger (`log.std`) with lgr logger and given options. 
+All standard methods like `log.Print`, `log.Println`, `log.Fatal` and so on will be forwarder to lgr.
+
 ### global logger
 
 Users **should avoid** global logger and pass the concrete logger as a dependency. However, in some cases a global logger may be needed, for example migration from stdlib `log` to `lgr`. For such cases `log "github.com/go-pkgz/lgr"` can be imported instead of `log` package.
 
 Global logger provides `lgr.Printf`, `lgr.Print` and `lgr.Fatalf` functions. User can customize the logger by calling `lgr.Setup(options ...)`. The instance of this logger can be retrieved with `lgr.Default()`
+

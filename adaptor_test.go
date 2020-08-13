@@ -2,6 +2,7 @@ package lgr
 
 import (
 	"bytes"
+	"log"
 	"testing"
 	"time"
 
@@ -52,4 +53,19 @@ func TestAdaptor_ToStdLogger(t *testing.T) {
 	rerr.Reset()
 	wr.Printf("xxx %s", "yyy")
 	assert.Equal(t, "2018/01/07 13:02:34.000 WARN  xxx yyy\n", rout.String())
+}
+
+func TestSetupStdLogger(t *testing.T) {
+	rout, rerr := bytes.NewBuffer([]byte{}), bytes.NewBuffer([]byte{})
+	SetupStdLogger(Out(rout), Err(rerr), Format(WithMsec))
+	log.Print("something\n")
+	assert.Contains(t, rout.String(), " INFO  something\n")
+	rout.Reset()
+
+	log.Print("[WARN] something\n")
+	assert.Contains(t, rout.String(), " WARN  something\n")
+	rout.Reset()
+
+	log.Print("[DEBUG] something\n")
+	assert.Empty(t, rout.String())
 }

@@ -29,3 +29,12 @@ func ToWriter(l L, level string) *Writer {
 func ToStdLogger(l L, level string) *log.Logger {
 	return log.New(ToWriter(l, level), "", 0)
 }
+
+// SetupStdLogger makes the default std logger with lgr.L
+func SetupStdLogger(opts ...Option) {
+	logOpts := append([]Option{CallerDepth(3)}, opts...) // skip 3 more frames to compensate stdlog calls
+	l := New(logOpts...)
+	log.SetOutput(ToWriter(l, ""))
+	log.SetPrefix("")
+	log.SetFlags(0)
+}
