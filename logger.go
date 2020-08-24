@@ -54,6 +54,7 @@ type Logger struct {
 	callerDepth    int       // how many stack frames to skip, relative to the real (reported) frame
 	format         string    // layout template
 	secrets        [][]byte  // sub-strings to secrets by matching
+	mapper         Mapper    // map (alter) output based on levels
 
 	// internal use
 	now           nowFn
@@ -90,6 +91,7 @@ func New(options ...Option) *Logger {
 		stdout:      os.Stdout,
 		stderr:      os.Stderr,
 		callerDepth: 0,
+		mapper:      nopMapper,
 	}
 	for _, opt := range options {
 		opt(&res)
@@ -275,14 +277,14 @@ func (l *Logger) formatWithOptions(elems layout) (res string) {
 
 	parts = append(
 		parts,
-		orElse(l.msec,
+		l.mapper.TimeFunc(orElse(l.msec,
 			func() string { return elems.DT.Format("2006/01/02 15:04:05.000") },
 			func() string { return elems.DT.Format("2006/01/02 15:04:05") },
-		),
-		orElse(l.levelBraces,
+		)),
+		l.levelMapper(elems.Level)(orElse(l.levelBraces,
 			func() string { return `[` + elems.Level + `]` },
 			func() string { return elems.Level },
-		),
+		)),
 	)
 
 	if l.callerFile || l.callerFunc || l.callerPkg {
@@ -297,10 +299,10 @@ func (l *Logger) formatWithOptions(elems layout) (res string) {
 		if v := orElse(l.callerPkg, func() string { return elems.CallerPkg }, nothing); v != "" {
 			callerParts = append(callerParts, v)
 		}
-		parts = append(parts, "{"+strings.Join(callerParts, " ")+"}")
+		parts = append(parts, l.mapper.CallerFunc("{"+strings.Join(callerParts, " ")+"}"))
 	}
 
-	parts = append(parts, elems.Message)
+	parts = append(parts, l.levelMapper(elems.Level)(elems.Message))
 	return strings.Join(parts, " ")
 }
 
@@ -325,6 +327,20 @@ func (l *Logger) extractLevel(line string) (level, msg string) {
 		}
 	}
 	return "INFO", line
+}
+
+func (l *Logger) levelMapper(level string) mapFunc {
+	switch level {
+	case "TRACE", "DEBUG":
+		return l.mapper.DebugFunc
+	case "INFO ":
+		return l.mapper.InfoFunc
+	case "WARN ":
+		return l.mapper.WarnFunc
+	case "ERROR", "PANIC", "FATAL":
+		return l.mapper.ErrorFunc
+	}
+	return func(s string) string { return s }
 }
 
 // getDump reads runtime stack and returns as a string

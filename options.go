@@ -78,3 +78,10 @@ func Secret(vals ...string) Option {
 		}
 	}
 }
+
+// Map sets mapper functions to change elements of the logged message based on levels.
+func Map(m Mapper) Option {
+	return func(l *Logger) {
+		l.mapper = m
+	}
+}
