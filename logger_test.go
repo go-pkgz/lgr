@@ -138,6 +138,7 @@ func TestLoggerWithCallerDepth(t *testing.T) {
 		"func2) something 123 err\n", rout.String())
 }
 
+//nolint dupl
 func TestLogger_formatWithOptions(t *testing.T) {
 	tbl := []struct {
 		opts  []Option
@@ -176,6 +177,75 @@ func TestLogger_formatWithOptions(t *testing.T) {
 	for n, tt := range tbl {
 		tt := tt
 		l := New(tt.opts...)
+		t.Run(strconv.Itoa(n), func(t *testing.T) {
+			assert.Equal(t, tt.res, l.formatWithOptions(tt.elems))
+		})
+	}
+}
+
+//nolint dupl
+func TestLogger_formatWithColors(t *testing.T) {
+	tbl := []struct {
+		opts  []Option
+		elems layout
+		res   string
+	}{
+		{
+			[]Option{},
+			layout{DT: time.Date(2018, 1, 7, 13, 2, 34, 0, time.Local), Message: "blah blah", Level: "INFO "},
+			"!TM=2018/01/07 13:02:34=TM! !IF=INFO =IF! !IF=blah blah=IF!",
+		},
+		{
+			[]Option{Msec},
+			layout{DT: time.Date(2018, 1, 7, 13, 2, 34, 0, time.Local), Message: "blah blah", Level: "DEBUG"},
+			"!TM=2018/01/07 13:02:34.000=TM! !DG=DEBUG=DG! !DG=blah blah=DG!",
+		},
+		{
+			[]Option{Msec, LevelBraces},
+			layout{DT: time.Date(2018, 1, 7, 13, 2, 34, 0, time.Local), Message: "blah blah", Level: "DEBUG"},
+			"!TM=2018/01/07 13:02:34.000=TM! !DG=[DEBUG]=DG! !DG=blah blah=DG!",
+		},
+		{
+			[]Option{CallerFile, Msec},
+			layout{DT: time.Date(2018, 1, 7, 13, 2, 34, 0, time.Local), Message: "blah blah", Level: "DEBUG",
+				CallerFile: "file1.go", CallerLine: 12},
+			"!TM=2018/01/07 13:02:34.000=TM! !DG=DEBUG=DG! !CL={file1.go:12}=CL! !DG=blah blah=DG!",
+		},
+		{
+			[]Option{CallerFunc, CallerPkg},
+			layout{DT: time.Date(2018, 1, 7, 13, 2, 34, 0, time.Local), Message: "blah blah", Level: "DEBUG",
+				CallerFunc: "func1", CallerPkg: "pkg"},
+			"!TM=2018/01/07 13:02:34=TM! !DG=DEBUG=DG! !CL={func1 pkg}=CL! !DG=blah blah=DG!",
+		},
+	}
+
+	mp := Mapper{
+		ErrorFunc: func(s string) string {
+			return "!ER=" + s + "=ER!"
+		},
+		WarnFunc: func(s string) string {
+			return "!WR=" + s + "=WR!"
+		},
+		InfoFunc: func(s string) string {
+			return "!IF=" + s + "=IF!"
+		},
+		DebugFunc: func(s string) string {
+			return "!DG=" + s + "=DG!"
+		},
+		CallerFunc: func(s string) string {
+			return "!CL=" + s + "=CL!"
+		},
+		TimeFunc: func(s string) string {
+			return "!TM=" + s + "=TM!"
+		},
+	}
+
+	for n, tt := range tbl {
+		tt := tt
+		opts := []Option{}
+		opts = append(opts, tt.opts...)
+		opts = append(opts, Map(mp))
+		l := New(opts...)
 		t.Run(strconv.Itoa(n), func(t *testing.T) {
 			assert.Equal(t, tt.res, l.formatWithOptions(tt.elems))
 		})
