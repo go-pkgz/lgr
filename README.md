@@ -88,6 +88,20 @@ and messages elements handled by the same function for a given level.
 
 _A typical use-case is to produce colorful output with a user-define colorization library._
 
+example with [fatih/color](https://github.com/fatih/color):
+
+```go
+	colorizer := lgr.Mapper{
+		ErrorFunc:  func(s string) string { return color.New(color.FgHiRed).Sprint(s) },
+		WarnFunc:   func(s string) string { return color.New(color.FgHiYellow).Sprint(s) },
+		InfoFunc:   func(s string) string { return color.New(color.FgHiWhite).Sprint(s) },
+		DebugFunc:  func(s string) string { return color.New(color.FgWhite).Sprint(s) },
+		CallerFunc: func(s string) string { return color.New(color.FgBlue).Sprint(s) },
+		TimeFunc:   func(s string) string { return color.New(color.FgCyan).Sprint(s) },
+	}
+
+	logOpts := []lgr.Option{lgr.Msec, lgr.LevelBraces, lgr.Map(colorizer)}
+```
 ### adaptors
 
 `lgr` logger can be converted to `io.Writer` or `*log.Logger`
