@@ -138,6 +138,7 @@ func TestLoggerWithCallerDepth(t *testing.T) {
 		"func2) something 123 err\n", rout.String())
 }
 
+//nolint dupl
 func TestLogger_formatWithOptions(t *testing.T) {
 	tbl := []struct {
 		opts  []Option
@@ -182,6 +183,7 @@ func TestLogger_formatWithOptions(t *testing.T) {
 	}
 }
 
+//nolint dupl
 func TestLogger_formatWithColors(t *testing.T) {
 	tbl := []struct {
 		opts  []Option
