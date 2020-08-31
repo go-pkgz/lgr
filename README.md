@@ -44,6 +44,7 @@ _Without `lgr.Caller*` it will drop `{caller}` part_
 - `lgr.Format` - sets a custom template, overwrite all other formatting modifiers.
 - `lgr.Secret(secret ...)` - sets list of the secrets to hide from the logging outputs.
 - `lgr.Map(mapper)` - sets mapper functions to change elements of the logging output based on levels.
+- `lgr.StackTraceOnError` - turns on stack trace for ERROR level.
 
 example: `l := lgr.New(lgr.Debug, lgr.Msec)`
 

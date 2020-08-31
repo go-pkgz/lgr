@@ -298,7 +298,7 @@ func TestLoggerErrorWithDump(t *testing.T) {
 	assert.Equal(t, "2018/01/07 13:02:34.000 ERROR (lgr.TestLoggerErrorWithDump) oh my, error now! bad thing happened", lines[0])
 	assert.Equal(t, ">>> stack trace:", lines[1])
 	assert.Contains(t, lines[2], "github.com/go-pkgz/lgr.TestLoggerErrorWithDump(")
-	assert.Contains(t, lines[3], "go-pkgz/lgr/logger_test.go:296")
+	assert.Contains(t, lines[3], "lgr/logger_test.go:296")
 }
 
 func TestLoggerWithErrorSameOutputs(t *testing.T) {
