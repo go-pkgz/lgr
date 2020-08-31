@@ -129,12 +129,12 @@ func New(options ...Option) *Logger {
 // DEBUG and TRACE filtered out by dbg and trace flags.
 // ERROR and FATAL also send the same line to err writer.
 // FATAL and PANIC adds runtime stack and os.exit(1), like panic.
-//nolint gocyclo
 func (l *Logger) Logf(format string, args ...interface{}) {
 	// to align call depth between (*Logger).Logf() and, for example, Printf()
 	l.logf(format, args...)
 }
 
+//nolint gocyclo
 func (l *Logger) logf(format string, args ...interface{}) {
 
 	lv, msg := l.extractLevel(fmt.Sprintf(format, args...))
@@ -193,7 +193,7 @@ func (l *Logger) logf(format string, args ...interface{}) {
 			if stackSize := runtime.Stack(stackInfo, false); stackSize > 0 {
 				traceLines := reTrace.Split(string(stackInfo[:stackSize]), -1)
 				if len(traceLines) > 0 {
-					l.stdout.Write([]byte(">>> stack trace:\n" + traceLines[len(traceLines)-1]))
+					_, _ = l.stdout.Write([]byte(">>> stack trace:\n" + traceLines[len(traceLines)-1]))
 				}
 			}
 		}
