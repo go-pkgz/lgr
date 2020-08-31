@@ -44,7 +44,7 @@ var secretReplacement = []byte("******")
 
 var (
 	reTraceDefault = regexp.MustCompile(`.*/lgr/logger\.go.*\n`)
-	reTraceStd     = regexp.MustCompile(`.*/lgr/log\.go.*\n`)
+	reTraceStd     = regexp.MustCompile(`.*/log/log\.go.*\n`)
 )
 
 // Logger provided simple logger with basic support of levels. Thread safe
