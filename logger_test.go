@@ -289,6 +289,18 @@ func TestLoggerWithPanic(t *testing.T) {
 	assert.Contains(t, rerr.String(), "/lgr/logger.go:")
 }
 
+func TestLoggerErrorWithDump(t *testing.T) {
+	rout, rerr := bytes.NewBuffer([]byte{}), bytes.NewBuffer([]byte{})
+	l := New(Debug, Format(FuncDebug), Out(rout), Err(rerr), StackTraceOnError)
+	l.now = func() time.Time { return time.Date(2018, 1, 7, 13, 2, 34, 0, time.Local) }
+	l.Logf("ERROR oh my, error now! %v", errors.New("bad thing happened"))
+	lines := strings.Split(rout.String(), "\n")
+	assert.Equal(t, "2018/01/07 13:02:34.000 ERROR (lgr.TestLoggerErrorWithDump) oh my, error now! bad thing happened", lines[0])
+	assert.Equal(t, ">>> stack trace:", lines[1])
+	assert.Contains(t, lines[2], "github.com/go-pkgz/lgr.TestLoggerErrorWithDump(")
+	assert.Contains(t, lines[3], "go-pkgz/lgr/logger_test.go:296")
+}
+
 func TestLoggerWithErrorSameOutputs(t *testing.T) {
 	fatalCalls := 0
 	rout := bytes.NewBuffer([]byte{})

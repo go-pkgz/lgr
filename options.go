@@ -85,3 +85,8 @@ func Map(m Mapper) Option {
 		l.mapper = m
 	}
 }
+
+// StackTraceOnError turns on stack trace for ERROR level.
+func StackTraceOnError(l *Logger) {
+	l.errorDump = true
+}
