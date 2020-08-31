@@ -41,7 +41,11 @@ const (
 )
 
 var secretReplacement = []byte("******")
-var reTrace = regexp.MustCompile(`.*/lgr/logger\.go.*\n`)
+
+var (
+	reTraceDefault = regexp.MustCompile(`.*/lgr/logger\.go.*\n`)
+	reTraceStd     = regexp.MustCompile(`.*/lgr/log\.go.*\n`)
+)
 
 // Logger provided simple logger with basic support of levels. Thread safe
 type Logger struct {
@@ -67,6 +71,7 @@ type Logger struct {
 	levelBracesOn bool
 	errorDump     bool
 	templ         *template.Template
+	reTrace       *regexp.Regexp
 }
 
 // can be redefined internally for testing
@@ -95,6 +100,7 @@ func New(options ...Option) *Logger {
 		stderr:      os.Stderr,
 		callerDepth: 0,
 		mapper:      nopMapper,
+		reTrace:     reTraceDefault,
 	}
 	for _, opt := range options {
 		opt(&res)
@@ -191,7 +197,7 @@ func (l *Logger) logf(format string, args ...interface{}) {
 		if l.errorDump {
 			stackInfo := make([]byte, 1024*1024)
 			if stackSize := runtime.Stack(stackInfo, false); stackSize > 0 {
-				traceLines := reTrace.Split(string(stackInfo[:stackSize]), -1)
+				traceLines := l.reTrace.Split(string(stackInfo[:stackSize]), -1)
 				if len(traceLines) > 0 {
 					_, _ = l.stdout.Write([]byte(">>> stack trace:\n" + traceLines[len(traceLines)-1]))
 				}
