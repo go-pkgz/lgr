@@ -129,6 +129,7 @@ func New(options ...Option) *Logger {
 // DEBUG and TRACE filtered out by dbg and trace flags.
 // ERROR and FATAL also send the same line to err writer.
 // FATAL and PANIC adds runtime stack and os.exit(1), like panic.
+//nolint gocyclo
 func (l *Logger) Logf(format string, args ...interface{}) {
 	// to align call depth between (*Logger).Logf() and, for example, Printf()
 	l.logf(format, args...)
