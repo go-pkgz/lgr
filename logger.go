@@ -318,10 +318,20 @@ func (l *Logger) formatWithOptions(elems layout) (res string) {
 		if v := orElse(l.callerPkg, func() string { return elems.CallerPkg }, nothing); v != "" {
 			callerParts = append(callerParts, v)
 		}
-		parts = append(parts, l.mapper.CallerFunc("{"+strings.Join(callerParts, " ")+"}"))
+
+		caller := "{" + strings.Join(callerParts, " ") + "}"
+		if l.mapper.CallerFunc != nil {
+			caller = l.mapper.CallerFunc(caller)
+		}
+		parts = append(parts, caller)
 	}
 
-	parts = append(parts, l.levelMapper(elems.Level)(elems.Message))
+	msg := elems.Message
+	if l.mapper.MessageFunc != nil {
+		msg = l.mapper.MessageFunc(elems.Message)
+	}
+
+	parts = append(parts, l.levelMapper(elems.Level)(msg))
 	return strings.Join(parts, " ")
 }
 
@@ -349,14 +359,31 @@ func (l *Logger) extractLevel(line string) (level, msg string) {
 }
 
 func (l *Logger) levelMapper(level string) mapFunc {
+
+	nop := func(s string) string {
+		return s
+	}
+
 	switch level {
 	case "TRACE", "DEBUG":
+		if l.mapper.DebugFunc == nil {
+			return nop
+		}
 		return l.mapper.DebugFunc
 	case "INFO ":
+		if l.mapper.InfoFunc == nil {
+			return nop
+		}
 		return l.mapper.InfoFunc
 	case "WARN ":
+		if l.mapper.WarnFunc == nil {
+			return nop
+		}
 		return l.mapper.WarnFunc
 	case "ERROR", "PANIC", "FATAL":
+		if l.mapper.ErrorFunc == nil {
+			return nop
+		}
 		return l.mapper.ErrorFunc
 	}
 	return func(s string) string { return s }
