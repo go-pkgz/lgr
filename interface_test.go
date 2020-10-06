@@ -63,8 +63,8 @@ func TestDefault(t *testing.T) {
 	assert.Equal(t, "", buff.String())
 
 	buff.Reset()
-	Print("[WARN] something 123")
-	assert.Equal(t, "2018/01/07 13:02:34 WARN  something 123\n", buff.String())
+	Print("[WARN] something 123 % %% %3A%2F%")
+	assert.Equal(t, "2018/01/07 13:02:34 WARN  something 123 % %% %3A%2F%\n", buff.String())
 }
 
 func TestDefaultWithSetup(t *testing.T) {

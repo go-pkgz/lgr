@@ -143,7 +143,13 @@ func (l *Logger) Logf(format string, args ...interface{}) {
 //nolint gocyclo
 func (l *Logger) logf(format string, args ...interface{}) {
 
-	lv, msg := l.extractLevel(fmt.Sprintf(format, args...))
+	var lv, msg string
+	if len(args) == 0 {
+		lv, msg = l.extractLevel(format)
+	} else {
+		lv, msg = l.extractLevel(fmt.Sprintf(format, args...))
+	}
+
 	if lv == "DEBUG" && !l.dbg {
 		return
 	}
