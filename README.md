@@ -82,6 +82,10 @@ _Note: formatter (predefined or custom) adds measurable overhead - the cost will
 - `FATAL` and send messages to both out and err writers and exit(1)
 - `PANIC` does the same as `FATAL` but in addition sends dump of callers and runtime info to err.
 
+### shortcuts 
+
+The usual `Logf("INFO some important message, %v", err)` can be shortened to `lgr.Info("some important message, %v", err)`. There are also shortcuts for all levels, i.e. `lgr.Trace`, `lgr.Debug`, `lgr.Info`, `lgr.Warn`, `lgr.Error`, `lgr.Panic` and `lgr.Fatal`.
+
 ### mapper
 
 Elements of the output can be altered with a set of user defined function passed as `lgr.Map` options. Such a mapper changes
