@@ -138,7 +138,7 @@ func TestLoggerWithCallerDepth(t *testing.T) {
 		"func2) something 123 err\n", rout.String())
 }
 
-//nolint dupl
+// nolint dupl
 func TestLogger_formatWithOptions(t *testing.T) {
 	tbl := []struct {
 		opts  []Option
@@ -183,7 +183,7 @@ func TestLogger_formatWithOptions(t *testing.T) {
 	}
 }
 
-//nolint dupl
+// nolint dupl
 func TestLogger_formatWithMapper(t *testing.T) {
 	tbl := []struct {
 		opts  []Option
@@ -255,7 +255,7 @@ func TestLogger_formatWithMapper(t *testing.T) {
 	}
 }
 
-//nolint dupl
+// nolint dupl
 func TestLogger_formatWithPartialMapper(t *testing.T) {
 	tbl := []struct {
 		opts  []Option
@@ -514,6 +514,62 @@ func TestLoggerHidden(t *testing.T) {
 	l.now = func() time.Time { return time.Date(2018, 1, 7, 13, 2, 34, 123000000, time.Local) }
 	l.Logf("INFO something password 123 secret xyz")
 	assert.Equal(t, "2018/01/07 13:02:34 INFO  something ****** 123 ****** xyz\n", rout.String(), "secrets secrets")
+}
+
+func TestLogger_Shortcuts(t *testing.T) {
+	{
+		rout, rerr := bytes.NewBuffer([]byte{}), bytes.NewBuffer([]byte{})
+		lg := New(Debug, Out(rout), Err(rerr), Format(FullDebug))
+		lg.now = func() time.Time { return time.Date(2018, 1, 7, 13, 2, 34, 123000000, time.Local) }
+
+		lg.Infof("the message %s blah %d", "test", 123)
+		assert.Equal(t, "2018/01/07 13:02:34.123 INFO  (lgr/logger_test.go:525 lgr.TestLogger_Shortcuts) the message test blah 123\n",
+			rout.String())
+	}
+
+	{
+		rout, rerr := bytes.NewBuffer([]byte{}), bytes.NewBuffer([]byte{})
+		lg := New(Out(rout), Err(rerr), LevelBraces)
+		lg.now = func() time.Time { return time.Date(2018, 1, 7, 13, 2, 34, 123000000, time.Local) }
+
+		lg.Infof("the message %s blah %d", "test", 123)
+		assert.Equal(t, "2018/01/07 13:02:34 [INFO]  the message test blah 123\n", rout.String())
+	}
+
+	{
+		rout, rerr := bytes.NewBuffer([]byte{}), bytes.NewBuffer([]byte{})
+		lg := New(Out(rout), Err(rerr), LevelBraces)
+		lg.now = func() time.Time { return time.Date(2018, 1, 7, 13, 2, 34, 123000000, time.Local) }
+
+		lg.Infof("the message")
+		assert.Equal(t, "2018/01/07 13:02:34 [INFO]  the message\n", rout.String())
+	}
+	{
+		rout, rerr := bytes.NewBuffer([]byte{}), bytes.NewBuffer([]byte{})
+		lg := New(Out(rout), Err(rerr), LevelBraces, Debug)
+		lg.now = func() time.Time { return time.Date(2018, 1, 7, 13, 2, 34, 123000000, time.Local) }
+
+		lg.Debugf("the message %s blah %d", "test", 123)
+		assert.Equal(t, "2018/01/07 13:02:34 [DEBUG] the message test blah 123\n", rout.String())
+	}
+
+	{
+		rout, rerr := bytes.NewBuffer([]byte{}), bytes.NewBuffer([]byte{})
+		lg := New(Out(rout), Err(rerr), LevelBraces, Trace)
+		lg.now = func() time.Time { return time.Date(2018, 1, 7, 13, 2, 34, 123000000, time.Local) }
+
+		lg.Tracef("the message %s blah %d", "test", 123)
+		assert.Equal(t, "2018/01/07 13:02:34 [TRACE] the message test blah 123\n", rout.String())
+	}
+
+	{
+		rout, rerr := bytes.NewBuffer([]byte{}), bytes.NewBuffer([]byte{})
+		lg := New(Out(rout), Err(rerr), Msec)
+		lg.now = func() time.Time { return time.Date(2018, 1, 7, 13, 2, 34, 123000000, time.Local) }
+
+		lg.Warnf("the message %s blah %d", "test", 123)
+		assert.Equal(t, "2018/01/07 13:02:34.123 WARN  the message test blah 123\n", rout.String())
+	}
 }
 
 func BenchmarkNoDbgNoFormat(b *testing.B) {

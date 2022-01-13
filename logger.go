@@ -140,20 +140,45 @@ func (l *Logger) Logf(format string, args ...interface{}) {
 	l.logf(format, args...)
 }
 
-//nolint gocyclo
+// Tracef provides shortcut for TRACE level logging.
+func (l *Logger) Tracef(format string, args ...interface{}) {
+	l.logf("TRACE "+format, args...)
+}
+
+// Debugf provides shortcut for DEBUG level logging.
+func (l *Logger) Debugf(format string, args ...interface{}) {
+	l.logf("DEBUG "+format, args...)
+}
+
+// Infof provides shortcut for INFO level logging.
+func (l *Logger) Infof(format string, args ...interface{}) {
+	l.logf("INFO "+format, args...)
+}
+
+// Warnf provides shortcut for WARN level logging.
+func (l *Logger) Warnf(format string, args ...interface{}) {
+	l.logf("WARN "+format, args...)
+}
+
+// Errorf provides shortcut for ERROR level logging.
+func (l *Logger) Errorf(format string, args ...interface{}) {
+	l.logf("ERROR "+format, args...)
+}
+
+// Panicf provides shortcut for PANIC level logging.
+func (l *Logger) Panicf(format string, args ...interface{}) {
+	l.logf("PANIC "+format, args...)
+}
+
+// Fatalf provides shortcut for FATAL level logging.
+func (l *Logger) Fatalf(format string, args ...interface{}) {
+	l.logf("FATAL "+format, args...)
+}
+
 func (l *Logger) logf(format string, args ...interface{}) {
 
-	var lv, msg string
-	if len(args) == 0 {
-		lv, msg = l.extractLevel(format)
-	} else {
-		lv, msg = l.extractLevel(fmt.Sprintf(format, args...))
-	}
-
-	if lv == "DEBUG" && !l.dbg {
-		return
-	}
-	if lv == "TRACE" && !l.trace {
+	lv, msg := l.parse(format, args...)
+	if (!l.dbg && lv == "DEBUG") || (!l.trace && lv == "TRACE") {
 		return
 	}
 
@@ -351,8 +376,16 @@ func (l *Logger) formatLevel(lv string) string {
 	return lv + spaces
 }
 
-// extractLevel parses messages with optional level prefix and returns level and the message with stripped level
-func (l *Logger) extractLevel(line string) (level, msg string) {
+// parse parses messages with optional level prefix and returns level and the message with stripped level
+func (l *Logger) parse(format string, args ...interface{}) (level, msg string) {
+
+	var line string
+	if len(args) > 0 {
+		line = fmt.Sprintf(format, args...)
+	} else {
+		line = format
+	}
+
 	for _, lv := range levels {
 		if strings.HasPrefix(line, lv) {
 			return lv, strings.TrimSpace(line[len(lv):])

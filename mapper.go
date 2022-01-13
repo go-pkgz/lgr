@@ -1,8 +1,8 @@
 package lgr
 
 // Mapper defines optional functions to change elements of the logged message for each part, based on levels.
-// Only some mapFunc can be defined, by default does nothing. Can be used to alter the output, for example making some
-// part of the output colorful.
+// Only some mapFunc can be defined (i.e. no need to define all of then), by Mapper's default does nothing.
+// Can be used to alter the output, for example making some part of the output colorful, masking some part of the output, etc.
 type Mapper struct {
 	MessageFunc mapFunc // message mapper on all levels
 	ErrorFunc   mapFunc // message mapper on ERROR level
