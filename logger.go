@@ -140,38 +140,38 @@ func (l *Logger) Logf(format string, args ...interface{}) {
 	l.logf(format, args...)
 }
 
-// Tracef provides shortcut for TRACE level logging.
-func (l *Logger) Tracef(format string, args ...interface{}) {
+// Trace provides shortcut for TRACE level logging.
+func (l *Logger) Trace(format string, args ...interface{}) {
 	l.logf("TRACE "+format, args...)
 }
 
-// Debugf provides shortcut for DEBUG level logging.
-func (l *Logger) Debugf(format string, args ...interface{}) {
+// Debug provides shortcut for DEBUG level logging.
+func (l *Logger) Debug(format string, args ...interface{}) {
 	l.logf("DEBUG "+format, args...)
 }
 
-// Infof provides shortcut for INFO level logging.
-func (l *Logger) Infof(format string, args ...interface{}) {
+// Info provides shortcut for INFO level logging.
+func (l *Logger) Info(format string, args ...interface{}) {
 	l.logf("INFO "+format, args...)
 }
 
-// Warnf provides shortcut for WARN level logging.
-func (l *Logger) Warnf(format string, args ...interface{}) {
+// Warn provides shortcut for WARN level logging.
+func (l *Logger) Warn(format string, args ...interface{}) {
 	l.logf("WARN "+format, args...)
 }
 
-// Errorf provides shortcut for ERROR level logging.
-func (l *Logger) Errorf(format string, args ...interface{}) {
+// Error provides shortcut for ERROR level logging.
+func (l *Logger) Error(format string, args ...interface{}) {
 	l.logf("ERROR "+format, args...)
 }
 
-// Panicf provides shortcut for PANIC level logging.
-func (l *Logger) Panicf(format string, args ...interface{}) {
+// Panic provides shortcut for PANIC level logging.
+func (l *Logger) Panic(format string, args ...interface{}) {
 	l.logf("PANIC "+format, args...)
 }
 
-// Fatalf provides shortcut for FATAL level logging.
-func (l *Logger) Fatalf(format string, args ...interface{}) {
+// Fatal provides shortcut for FATAL level logging.
+func (l *Logger) Fatal(format string, args ...interface{}) {
 	l.logf("FATAL "+format, args...)
 }
 

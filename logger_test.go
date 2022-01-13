@@ -522,7 +522,7 @@ func TestLogger_Shortcuts(t *testing.T) {
 		lg := New(Debug, Out(rout), Err(rerr), Format(FullDebug))
 		lg.now = func() time.Time { return time.Date(2018, 1, 7, 13, 2, 34, 123000000, time.Local) }
 
-		lg.Infof("the message %s blah %d", "test", 123)
+		lg.Info("the message %s blah %d", "test", 123)
 		assert.Equal(t, "2018/01/07 13:02:34.123 INFO  (lgr/logger_test.go:525 lgr.TestLogger_Shortcuts) the message test blah 123\n",
 			rout.String())
 	}
@@ -532,7 +532,7 @@ func TestLogger_Shortcuts(t *testing.T) {
 		lg := New(Out(rout), Err(rerr), LevelBraces)
 		lg.now = func() time.Time { return time.Date(2018, 1, 7, 13, 2, 34, 123000000, time.Local) }
 
-		lg.Infof("the message %s blah %d", "test", 123)
+		lg.Info("the message %s blah %d", "test", 123)
 		assert.Equal(t, "2018/01/07 13:02:34 [INFO]  the message test blah 123\n", rout.String())
 	}
 
@@ -541,7 +541,7 @@ func TestLogger_Shortcuts(t *testing.T) {
 		lg := New(Out(rout), Err(rerr), LevelBraces)
 		lg.now = func() time.Time { return time.Date(2018, 1, 7, 13, 2, 34, 123000000, time.Local) }
 
-		lg.Infof("the message")
+		lg.Info("the message")
 		assert.Equal(t, "2018/01/07 13:02:34 [INFO]  the message\n", rout.String())
 	}
 	{
@@ -549,7 +549,7 @@ func TestLogger_Shortcuts(t *testing.T) {
 		lg := New(Out(rout), Err(rerr), LevelBraces, Debug)
 		lg.now = func() time.Time { return time.Date(2018, 1, 7, 13, 2, 34, 123000000, time.Local) }
 
-		lg.Debugf("the message %s blah %d", "test", 123)
+		lg.Debug("the message %s blah %d", "test", 123)
 		assert.Equal(t, "2018/01/07 13:02:34 [DEBUG] the message test blah 123\n", rout.String())
 	}
 
@@ -558,7 +558,7 @@ func TestLogger_Shortcuts(t *testing.T) {
 		lg := New(Out(rout), Err(rerr), LevelBraces, Trace)
 		lg.now = func() time.Time { return time.Date(2018, 1, 7, 13, 2, 34, 123000000, time.Local) }
 
-		lg.Tracef("the message %s blah %d", "test", 123)
+		lg.Trace("the message %s blah %d", "test", 123)
 		assert.Equal(t, "2018/01/07 13:02:34 [TRACE] the message test blah 123\n", rout.String())
 	}
 
@@ -567,7 +567,7 @@ func TestLogger_Shortcuts(t *testing.T) {
 		lg := New(Out(rout), Err(rerr), Msec)
 		lg.now = func() time.Time { return time.Date(2018, 1, 7, 13, 2, 34, 123000000, time.Local) }
 
-		lg.Warnf("the message %s blah %d", "test", 123)
+		lg.Warn("the message %s blah %d", "test", 123)
 		assert.Equal(t, "2018/01/07 13:02:34.123 WARN  the message test blah 123\n", rout.String())
 	}
 }
