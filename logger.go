@@ -2,6 +2,7 @@
 // The logger's output can be customized in 2 ways:
 //   - by setting individual formatting flags, i.e. lgr.New(lgr.Msec, lgr.CallerFunc)
 //   - by passing formatting template, i.e. lgr.New(lgr.Format(lgr.Short))
+//
 // Leveled output works for messages based on text prefix, i.e. Logf("INFO some message") means INFO level.
 // Debug and trace levels can be filtered based on lgr.Trace and lgr.Debug options.
 // ERROR, FATAL and PANIC levels send to err as well. FATAL terminate caller application with os.Exit(1)
@@ -140,7 +141,7 @@ func (l *Logger) Logf(format string, args ...interface{}) {
 	l.logf(format, args...)
 }
 
-//nolint gocyclo
+// nolint gocyclo
 func (l *Logger) logf(format string, args ...interface{}) {
 
 	var lv, msg string
@@ -194,10 +195,22 @@ func (l *Logger) logf(format string, args ...interface{}) {
 	l.lock.Lock()
 	_, _ = l.stdout.Write(data)
 
+	var isSameStream bool
+	outFile, outOk := l.stdout.(*os.File)
+	errFile, errOk := l.stderr.(*os.File)
+
+	if outOk && errOk {
+		outStat, _ := outFile.Stat()
+		errStat, _ := errFile.Stat()
+		isSameStream = os.SameFile(outStat, errStat)
+	} else {
+		isSameStream = l.stderr == l.stdout
+	}
+
 	// write to err as well for high levels, exit(1) on fatal and panic and dump stack on panic level
 	switch lv {
 	case "ERROR":
-		if l.stderr != l.stdout {
+		if !isSameStream {
 			_, _ = l.stderr.Write(data)
 		}
 		if l.errorDump {
@@ -210,12 +223,12 @@ func (l *Logger) logf(format string, args ...interface{}) {
 			}
 		}
 	case "FATAL":
-		if l.stderr != l.stdout {
+		if !isSameStream {
 			_, _ = l.stderr.Write(data)
 		}
 		l.fatal()
 	case "PANIC":
-		if l.stderr != l.stdout {
+		if !isSameStream {
 			_, _ = l.stderr.Write(data)
 		}
 		_, _ = l.stderr.Write(getDump())
