@@ -52,6 +52,7 @@ var (
 type Logger struct {
 	// set with Option calls
 	stdout, stderr io.Writer // destination writes for out and err
+	sameStream     bool      // stdout and stderr are the same stream
 	dbg            bool      // allows reporting for DEBUG level
 	trace          bool      // allows reporting for TRACE and DEBUG levels
 	callerFile     bool      // reports caller file with line number, i.e. foo/bar.go:89
@@ -129,6 +130,16 @@ func New(options ...Option) *Logger {
 	res.callerOn = strings.Contains(res.format, "{{.Caller") || res.callerFile || res.callerFunc || res.callerPkg
 	res.levelBracesOn = strings.Contains(res.format, "[{{.Level}}]") || res.levelBraces
 
+	outFile, outOk := res.stdout.(*os.File)
+	errFile, errOk := res.stderr.(*os.File)
+	if outOk && errOk {
+		outStat, _ := outFile.Stat()
+		errStat, _ := errFile.Stat()
+		res.sameStream = os.SameFile(outStat, errStat)
+	} else {
+		res.sameStream = res.stderr == res.stdout
+	}
+
 	return &res
 }
 
@@ -195,22 +206,10 @@ func (l *Logger) logf(format string, args ...interface{}) {
 	l.lock.Lock()
 	_, _ = l.stdout.Write(data)
 
-	var isSameStream bool
-	outFile, outOk := l.stdout.(*os.File)
-	errFile, errOk := l.stderr.(*os.File)
-
-	if outOk && errOk {
-		outStat, _ := outFile.Stat()
-		errStat, _ := errFile.Stat()
-		isSameStream = os.SameFile(outStat, errStat)
-	} else {
-		isSameStream = l.stderr == l.stdout
-	}
-
 	// write to err as well for high levels, exit(1) on fatal and panic and dump stack on panic level
 	switch lv {
 	case "ERROR":
-		if !isSameStream {
+		if !l.sameStream {
 			_, _ = l.stderr.Write(data)
 		}
 		if l.errorDump {
@@ -223,12 +222,12 @@ func (l *Logger) logf(format string, args ...interface{}) {
 			}
 		}
 	case "FATAL":
-		if !isSameStream {
+		if !l.sameStream {
 			_, _ = l.stderr.Write(data)
 		}
 		l.fatal()
 	case "PANIC":
-		if !isSameStream {
+		if !l.sameStream {
 			_, _ = l.stderr.Write(data)
 		}
 		_, _ = l.stderr.Write(getDump())
