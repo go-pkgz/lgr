@@ -130,15 +130,7 @@ func New(options ...Option) *Logger {
 	res.callerOn = strings.Contains(res.format, "{{.Caller") || res.callerFile || res.callerFunc || res.callerPkg
 	res.levelBracesOn = strings.Contains(res.format, "[{{.Level}}]") || res.levelBraces
 
-	outFile, outOk := res.stdout.(*os.File)
-	errFile, errOk := res.stderr.(*os.File)
-	if outOk && errOk {
-		outStat, _ := outFile.Stat()
-		errStat, _ := errFile.Stat()
-		res.sameStream = os.SameFile(outStat, errStat)
-	} else {
-		res.sameStream = res.stderr == res.stdout
-	}
+	res.sameStream = isStreamsSame(res.stdout, res.stderr)
 
 	return &res
 }
@@ -416,4 +408,23 @@ func getDump() []byte {
 		length = maxSize
 	}
 	return stacktrace[:length]
+}
+
+// isStreamsSame checks if two streams are the same by comparing file which they refer to
+func isStreamsSame(s1, s2 io.Writer) bool {
+	s1File, outOk := s1.(*os.File)
+	s2File, errOk := s2.(*os.File)
+	if outOk && errOk {
+		outStat, err := s1File.Stat()
+		if err != nil {
+			return false
+		}
+		errStat, err := s2File.Stat()
+		if err != nil {
+			return false
+		}
+		return os.SameFile(outStat, errStat)
+	} else {
+		return s1 == s2
+	}
 }
