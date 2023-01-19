@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestLoggerNoDbg(t *testing.T) {
@@ -53,22 +54,22 @@ func TestLoggerWithDbg(t *testing.T) {
 		rout, rerr string
 	}{
 		{"aaa", []interface{}{},
-			"2018/01/07 13:02:34.123 INFO  (lgr/logger_test.go:82 lgr.TestLoggerWithDbg.func2) aaa\n", ""},
+			"2018/01/07 13:02:34.123 INFO  (lgr/logger_test.go:83 lgr.TestLoggerWithDbg.func2) aaa\n", ""},
 		{"DEBUG something 123 %s", []interface{}{"aaa"},
-			"2018/01/07 13:02:34.123 DEBUG (lgr/logger_test.go:82 lgr.TestLoggerWithDbg.func2) something 123 aaa\n", ""},
+			"2018/01/07 13:02:34.123 DEBUG (lgr/logger_test.go:83 lgr.TestLoggerWithDbg.func2) something 123 aaa\n", ""},
 		{"[DEBUG] something 123 %s", []interface{}{"aaa"},
-			"2018/01/07 13:02:34.123 DEBUG (lgr/logger_test.go:82 lgr.TestLoggerWithDbg.func2) something 123 aaa\n", ""},
+			"2018/01/07 13:02:34.123 DEBUG (lgr/logger_test.go:83 lgr.TestLoggerWithDbg.func2) something 123 aaa\n", ""},
 		{"INFO something 123 %s", []interface{}{"aaa"},
-			"2018/01/07 13:02:34.123 INFO  (lgr/logger_test.go:82 lgr.TestLoggerWithDbg.func2) something 123 aaa\n", ""},
+			"2018/01/07 13:02:34.123 INFO  (lgr/logger_test.go:83 lgr.TestLoggerWithDbg.func2) something 123 aaa\n", ""},
 		{"[INFO] something 123 %s", []interface{}{"aaa"},
-			"2018/01/07 13:02:34.123 INFO  (lgr/logger_test.go:82 lgr.TestLoggerWithDbg.func2) something 123 aaa\n", ""},
+			"2018/01/07 13:02:34.123 INFO  (lgr/logger_test.go:83 lgr.TestLoggerWithDbg.func2) something 123 aaa\n", ""},
 		{"blah something 123 %s", []interface{}{"aaa"},
-			"2018/01/07 13:02:34.123 INFO  (lgr/logger_test.go:82 lgr.TestLoggerWithDbg.func2) blah something 123 aaa\n", ""},
+			"2018/01/07 13:02:34.123 INFO  (lgr/logger_test.go:83 lgr.TestLoggerWithDbg.func2) blah something 123 aaa\n", ""},
 		{"WARN something 123 %s", []interface{}{"aaa"},
-			"2018/01/07 13:02:34.123 WARN  (lgr/logger_test.go:82 lgr.TestLoggerWithDbg.func2) something 123 aaa\n", ""},
+			"2018/01/07 13:02:34.123 WARN  (lgr/logger_test.go:83 lgr.TestLoggerWithDbg.func2) something 123 aaa\n", ""},
 		{"ERROR something 123 %s", []interface{}{"aaa"},
-			"2018/01/07 13:02:34.123 ERROR (lgr/logger_test.go:82 lgr.TestLoggerWithDbg.func2) something 123 aaa\n",
-			"2018/01/07 13:02:34.123 ERROR (lgr/logger_test.go:82 lgr.TestLoggerWithDbg.func2) something 123 aaa\n"},
+			"2018/01/07 13:02:34.123 ERROR (lgr/logger_test.go:83 lgr.TestLoggerWithDbg.func2) something 123 aaa\n",
+			"2018/01/07 13:02:34.123 ERROR (lgr/logger_test.go:83 lgr.TestLoggerWithDbg.func2) something 123 aaa\n"},
 	}
 
 	rout, rerr := bytes.NewBuffer([]byte{}), bytes.NewBuffer([]byte{})
@@ -98,7 +99,7 @@ func TestLoggerWithDbg(t *testing.T) {
 	rout.Reset()
 	rerr.Reset()
 	l.Logf("[DEBUG] something 123 %s", "err")
-	assert.Equal(t, "2018/01/07 13:02:34.000 DEBUG (lgr/logger_test.go:100) something 123 err\n", rout.String())
+	assert.Equal(t, "2018/01/07 13:02:34.000 DEBUG (lgr/logger_test.go:101) something 123 err\n", rout.String())
 
 	f := `{{.DT.Format "2006/01/02 15:04:05.000"}} {{.Level}} ({{.CallerFunc}}) {{.Message}}`
 	l = New(Debug, Out(rout), Err(rerr), Format(f)) // caller func only
@@ -127,7 +128,7 @@ func TestLoggerWithCallerDepth(t *testing.T) {
 	}
 	f(l1)
 
-	assert.Equal(t, "2018/01/07 13:02:34.123 DEBUG (lgr/logger_test.go:128 lgr.TestLoggerWithCallerDepth) something 123 err\n",
+	assert.Equal(t, "2018/01/07 13:02:34.123 DEBUG (lgr/logger_test.go:129 lgr.TestLoggerWithCallerDepth) something 123 err\n",
 		rout.String())
 
 	rout.Reset()
@@ -135,7 +136,7 @@ func TestLoggerWithCallerDepth(t *testing.T) {
 	l2 := New(Debug, Out(rout), Err(rerr), Format(FullDebug), CallerDepth(0))
 	l2.now = func() time.Time { return time.Date(2018, 1, 7, 13, 2, 34, 123000000, time.Local) }
 	f(l2)
-	assert.Equal(t, "2018/01/07 13:02:34.123 DEBUG (lgr/logger_test.go:126 lgr.TestLoggerWithCallerDepth."+
+	assert.Equal(t, "2018/01/07 13:02:34.123 DEBUG (lgr/logger_test.go:127 lgr.TestLoggerWithCallerDepth."+
 		"func2) something 123 err\n", rout.String())
 }
 
@@ -364,7 +365,7 @@ func TestLoggerErrorWithDump(t *testing.T) {
 	assert.Equal(t, "2018/01/07 13:02:34.000 ERROR (lgr.TestLoggerErrorWithDump) oh my, error now! bad thing happened", lines[0])
 	assert.Equal(t, ">>> stack trace:", lines[1])
 	assert.Contains(t, lines[2], "github.com/go-pkgz/lgr.TestLoggerErrorWithDump(")
-	assert.Contains(t, lines[3], "lgr/logger_test.go:362")
+	assert.Contains(t, lines[3], "lgr/logger_test.go:363")
 }
 
 func TestLoggerWithErrorSameOutputs(t *testing.T) {
@@ -517,33 +518,37 @@ func TestLoggerHidden(t *testing.T) {
 	assert.Equal(t, "2018/01/07 13:02:34 INFO  something ****** 123 ****** xyz\n", rout.String(), "secrets secrets")
 }
 
-func TestIsStreamsSameWithStd(t *testing.T) {
-	sout, serr := os.Stdout, os.Stderr
-	assert.True(t, isStreamsSame(sout, serr))
-}
-
-func TestIsStreamsSameWithSameFile(t *testing.T) {
-	dir := t.TempDir()
-	f, _ := os.CreateTemp(dir, "test")
-	assert.True(t, isStreamsSame(f, f))
-}
-
-func TestIsStreamsSameWithDiffFiles(t *testing.T) {
-	dir := t.TempDir()
-	f1, _ := os.CreateTemp(dir, "test")
-	f2, _ := os.CreateTemp(dir, "test")
-	assert.False(t, isStreamsSame(f1, f2))
-}
-
-func TestIsStreamsSameWithSameBuffer(t *testing.T) {
-	buf := bytes.NewBuffer([]byte{})
-	assert.True(t, isStreamsSame(buf, buf))
-}
-
-func TestIsStreamsSameWithDiffBuffer(t *testing.T) {
-	buf1, buf2 := bytes.NewBuffer([]byte{}), bytes.NewBuffer([]byte{})
-	sout, serr := buf1, buf2
-	assert.False(t, isStreamsSame(sout, serr))
+func TestIsStreamsSame(t *testing.T) {
+	{ // with stdout and stderr
+		sout, serr := os.Stdout, os.Stderr
+		assert.True(t, isStreamsSame(sout, serr))
+	}
+	{ // with same file
+		dir := t.TempDir()
+		f, err := os.CreateTemp(dir, "test")
+		require.NoError(t, err)
+		defer os.Remove(f.Name())
+		assert.True(t, isStreamsSame(f, f))
+	}
+	{ // with different files
+		dir := t.TempDir()
+		f1, err := os.CreateTemp(dir, "test")
+		require.NoError(t, err)
+		defer os.Remove(f1.Name())
+		f2, err := os.CreateTemp(dir, "test")
+		require.NoError(t, err)
+		defer os.Remove(f2.Name())
+		assert.False(t, isStreamsSame(f1, f2))
+	}
+	{ // with same buffer
+		buf := bytes.NewBuffer([]byte{})
+		assert.True(t, isStreamsSame(buf, buf))
+	}
+	{ // with different buffers
+		buf1, buf2 := bytes.NewBuffer([]byte{}), bytes.NewBuffer([]byte{})
+		sout, serr := buf1, buf2
+		assert.False(t, isStreamsSame(sout, serr))
+	}
 }
 
 func BenchmarkNoDbgNoFormat(b *testing.B) {

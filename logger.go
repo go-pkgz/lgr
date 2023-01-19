@@ -424,7 +424,6 @@ func isStreamsSame(s1, s2 io.Writer) bool {
 			return false
 		}
 		return os.SameFile(outStat, errStat)
-	} else {
-		return s1 == s2
 	}
+	return s1 == s2
 }
