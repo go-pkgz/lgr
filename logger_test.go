@@ -330,7 +330,7 @@ func TestLoggerWithPanic(t *testing.T) {
 	assert.Equal(t, 1, fatalCalls)
 	assert.Equal(t, "2018/01/07 13:02:34.000 PANIC (lgr.TestLoggerWithPanic) oh my, panic now! bad thing happened\n", rout.String())
 
-	t.Logf(rerr.String())
+	t.Logf(rerr.String()) //nolint:govet
 	assert.True(t, strings.HasPrefix(rerr.String(), "2018/01/07 13:02:34.000 PANIC"))
 	assert.Contains(t, rerr.String(), "github.com/go-pkgz/lgr.getDump")
 	assert.Contains(t, rerr.String(), "/lgr/logger.go:")
