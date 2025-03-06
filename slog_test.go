@@ -607,6 +607,124 @@ func TestLevelConversion(t *testing.T) {
 	assert.Contains(t, buff.String(), "TRACE trace level test")
 }
 
+// TestStringToLevel tests the stringToLevel function for all possible inputs
+func TestStringToLevel(t *testing.T) {
+	tests := []struct {
+		level    string
+		expected slog.Level
+	}{
+		{"TRACE", slog.LevelDebug - 4},
+		{"DEBUG", slog.LevelDebug},
+		{"INFO", slog.LevelInfo},
+		{"WARN", slog.LevelWarn},
+		{"ERROR", slog.LevelError},
+		{"PANIC", slog.LevelError},
+		{"FATAL", slog.LevelError},
+		{"UNKNOWN", slog.LevelInfo}, // unknown levels default to INFO
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.level, func(t *testing.T) {
+			// we'll need to call stringToLevel through a handler since it's not exported
+			buff := bytes.NewBuffer([]byte{})
+			logger := lgr.FromSlogHandler(slog.NewTextHandler(buff, nil))
+
+			// log with the level
+			logger.Logf(tt.level + " test message")
+
+			// verify proper level was used in the output
+			outStr := buff.String()
+			t.Logf("Output for level %s: %s", tt.level, outStr)
+
+			// check level string in the output based on the expected slog.Level
+			var expectedLevelStr string
+			switch tt.expected {
+			case slog.LevelDebug - 4:
+				expectedLevelStr = "DEBUG-4"
+			case slog.LevelDebug:
+				expectedLevelStr = "DEBUG"
+			case slog.LevelInfo:
+				expectedLevelStr = "INFO"
+			case slog.LevelWarn:
+				expectedLevelStr = "WARN"
+			case slog.LevelError:
+				expectedLevelStr = "ERROR"
+			}
+
+			if tt.level == "UNKNOWN" {
+				// for unknown levels, we should see INFO level in output
+				assert.Contains(t, outStr, "level=INFO")
+			} else if tt.level != "TRACE" { // TRACE gets mapped to a custom level
+				assert.Contains(t, outStr, "level="+expectedLevelStr)
+			}
+		})
+	}
+}
+
+// TestExtractLevel tests the extractLevel function in slog.go
+func TestExtractLevel(t *testing.T) {
+	tests := []struct {
+		msg         string
+		expectedLvl string
+		expectedMsg string
+	}{
+		// standard prefixes
+		{"DEBUG debug message", "DEBUG", "debug message"},
+		{"INFO info message", "INFO", "info message"},
+		{"WARN warn message", "WARN", "warn message"},
+		{"ERROR error message", "ERROR", "error message"},
+		{"FATAL fatal message", "FATAL", "fatal message"},
+		{"PANIC panic message", "PANIC", "panic message"},
+		{"TRACE trace message", "TRACE", "trace message"},
+		// bracketed prefixes
+		{"[DEBUG] debug message", "DEBUG", "debug message"},
+		{"[INFO] info message", "INFO", "info message"},
+		{"[WARN] warn message", "WARN", "warn message"},
+		{"[ERROR] error message", "ERROR", "error message"},
+		{"[FATAL] fatal message", "FATAL", "fatal message"},
+		{"[PANIC] panic message", "PANIC", "panic message"},
+		{"[TRACE] trace message", "TRACE", "trace message"},
+		// no level
+		{"no level prefix", "INFO", "no level prefix"},
+		// unknown level
+		{"UNKNOWN unknown level", "INFO", "UNKNOWN unknown level"},
+	}
+
+	// create logger and handler for testing
+	buff := bytes.NewBuffer([]byte{})
+	logger := lgr.FromSlogHandler(slog.NewTextHandler(buff, nil))
+
+	for _, tt := range tests {
+		t.Run(tt.msg, func(t *testing.T) {
+			// reset buffer
+			buff.Reset()
+
+			// log the message
+			logger.Logf(tt.msg)
+
+			// verify output
+			outStr := buff.String()
+			t.Logf("Output: %s", outStr)
+
+			// for messages with known levels, check that the level is correctly extracted
+			if tt.expectedLvl != "INFO" || tt.msg == "INFO info message" || tt.msg == "[INFO] info message" {
+				// expected level should be in the output
+				expectedLevelInOutput := "level=" + tt.expectedLvl
+				if tt.expectedLvl == "TRACE" {
+					expectedLevelInOutput = "level=DEBUG" // TRACE maps to custom debug level
+				}
+				if tt.expectedLvl == "PANIC" || tt.expectedLvl == "FATAL" {
+					expectedLevelInOutput = "level=ERROR" // PANIC/FATAL map to ERROR in slog
+				}
+				assert.Contains(t, outStr, expectedLevelInOutput)
+			}
+
+			// the message part should be in the output
+			assert.Contains(t, outStr, "msg=\""+tt.expectedMsg+"\"")
+		})
+	}
+}
+
 func TestHandleErrors(t *testing.T) {
 	// redirect stderr temporarily to capture error message
 	oldStderr := os.Stderr
@@ -633,6 +751,42 @@ func TestHandleErrors(t *testing.T) {
 
 	// verify error was logged
 	assert.Contains(t, buf.String(), "slog handler error")
+}
+
+func TestSetupWithSlog(t *testing.T) {
+	// save original Setup function and restore it after test
+	defer lgr.Setup(lgr.Debug) // just use a simple option to reset
+
+	// create a buffer to capture output
+	buff := bytes.NewBuffer([]byte{})
+
+	// create a slog handler with the buffer
+	jsonHandler := slog.NewJSONHandler(buff, &slog.HandlerOptions{
+		Level: slog.LevelDebug,
+	})
+
+	// create slog logger with the handler
+	slogLogger := slog.New(jsonHandler)
+
+	// set up global logger with slog
+	lgr.SetupWithSlog(slogLogger)
+
+	// use global logger functions
+	lgr.Printf("INFO message via global logger")
+
+	// verify output
+	outStr := buff.String()
+	t.Logf("Global logger output: %s", outStr)
+
+	// parse JSON output
+	var entry map[string]interface{}
+	err := json.Unmarshal([]byte(outStr), &entry)
+	require.NoError(t, err, "Output should be valid JSON")
+
+	// verify logger was set up correctly
+	assert.Equal(t, "INFO", entry["level"])
+	assert.Equal(t, "message via global logger", entry["msg"])
+	assert.Contains(t, entry, "time")
 }
 
 // Custom handler for testing error paths
