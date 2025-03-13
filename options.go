@@ -49,11 +49,13 @@ func Format(f string) Option {
 }
 
 // CallerFunc adds caller info with function name. Ignored if Format option used.
+// Note: This option only affects lgr's native text format and is ignored when using SlogHandler.
 func CallerFunc(l *Logger) {
 	l.callerFunc = true
 }
 
 // CallerPkg adds caller's package name. Ignored if Format option used.
+// Note: This option only affects lgr's native text format and is ignored when using SlogHandler.
 func CallerPkg(l *Logger) {
 	l.callerPkg = true
 }
@@ -64,6 +66,7 @@ func LevelBraces(l *Logger) {
 }
 
 // CallerFile adds caller info with file, and line number. Ignored if Format option used.
+// Note: This option only affects lgr's native text format and is ignored when using SlogHandler.
 func CallerFile(l *Logger) {
 	l.callerFile = true
 }

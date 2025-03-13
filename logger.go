@@ -29,7 +29,7 @@ import (
 var levels = []string{"TRACE", "DEBUG", "INFO", "WARN", "ERROR", "PANIC", "FATAL"}
 
 const (
-	// Short logging format
+	// short logging format
 	Short = `{{.DT.Format "2006/01/02 15:04:05"}} {{.Level}} {{.Message}}`
 	// WithMsec is a logging format with milliseconds
 	WithMsec = `{{.DT.Format "2006/01/02 15:04:05.000"}} {{.Level}} {{.Message}}`
@@ -166,11 +166,9 @@ func (l *Logger) logf(format string, args ...interface{}) {
 
 	// if slog handler is set, use it
 	if l.slogHandler != nil {
-		record := slog.Record{
-			Time:    l.now(),
-			Level:   stringToLevel(lv),
-			Message: msg,
-		}
+		// use NewRecord for consistency with adapter setup
+		// skip=0 because we don't need caller information from this context
+		record := slog.NewRecord(l.now(), stringToLevel(lv), msg, 0)
 		_ = l.slogHandler.Handle(context.Background(), record)
 
 		// handle FATAL and PANIC levels as they have special behavior

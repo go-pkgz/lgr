@@ -37,9 +37,9 @@ _Without `lgr.Caller*` it will drop `{caller}` part_
 - `lgr.Trace` - turn trace mode on to allow messages with "TRACE" abd "DEBUG" levels both (filtered otherwise)
 - `lgr.Out(io.Writer)` - sets the output writer, default `os.Stdout`
 - `lgr.Err(io.Writer)` - sets the error writer, default `os.Stderr`
-- `lgr.CallerFile` - adds the caller file info
-- `lgr.CallerFunc` - adds the caller function info
-- `lgr.CallerPkg` - adds the caller package
+- `lgr.CallerFile` - adds the caller file info (only affects lgr's native text format, not slog output)
+- `lgr.CallerFunc` - adds the caller function info (only affects lgr's native text format, not slog output)
+- `lgr.CallerPkg` - adds the caller package (only affects lgr's native text format, not slog output)
 - `lgr.LevelBraces` - wraps levels with "[" and "]"
 - `lgr.Msec` - adds milliseconds to timestamp
 - `lgr.Format` - sets a custom template, overwrite all other formatting modifiers.
@@ -181,8 +181,13 @@ logger.Logf("INFO message with caller info")
 // Output will include source file, line and function in JSON
 ```
 
-Note: The lgr caller options (`lgr.CallerFile`, `lgr.CallerFunc`) only work with lgr's native text format
-and don't affect JSON output from slog handlers.
+Note: The lgr caller options (`lgr.CallerFile`, `lgr.CallerFunc`, `lgr.CallerPkg`) only work with lgr's native text format
+and don't affect JSON output from slog handlers. To include caller information in JSON logs:
+
+1. For slog JSON handlers: Create the handler with `AddSource: true` as shown above
+2. For text-based logs: Use lgr's native caller options without slog integration
+
+This behavior is designed to respect each logging system's conventions for representing caller information.
 
 ### global logger
 
