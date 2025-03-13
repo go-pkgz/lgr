@@ -29,7 +29,7 @@ import (
 var levels = []string{"TRACE", "DEBUG", "INFO", "WARN", "ERROR", "PANIC", "FATAL"}
 
 const (
-	// short logging format
+	// Short logging format
 	Short = `{{.DT.Format "2006/01/02 15:04:05"}} {{.Level}} {{.Message}}`
 	// WithMsec is a logging format with milliseconds
 	WithMsec = `{{.DT.Format "2006/01/02 15:04:05.000"}} {{.Level}} {{.Message}}`
