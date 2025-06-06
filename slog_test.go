@@ -211,7 +211,7 @@ func TestDirect_SlogHandler(t *testing.T) {
 	// parse and verify output
 	outStr := buff.String()
 	lines := strings.Split(strings.TrimSpace(outStr), "\n")
-	require.Equal(t, 2, len(lines))
+	require.Len(t, lines, 2)
 
 	// verify first message
 	var entry map[string]interface{}
@@ -506,7 +506,7 @@ func TestSlogWithOptions(t *testing.T) {
 		// verify the customized fields are present
 		assert.Equal(t, "DEBUG", entry["severity"], "Should have renamed level field")
 		assert.Equal(t, "test-service", entry["service"], "Should have service attribute")
-		assert.Equal(t, float64(1), entry["version"], "Should have version attribute")
+		assert.InDelta(t, float64(1), entry["version"], 0.001, "Should have version attribute")
 	})
 
 	t.Run("lgr with caller info and json output", func(t *testing.T) {
@@ -785,6 +785,46 @@ func TestSetupWithSlog(t *testing.T) {
 
 	// verify logger was set up correctly
 	assert.Equal(t, "INFO", entry["level"])
+	assert.Equal(t, "message via global logger", entry["msg"])
+	assert.Contains(t, entry, "time")
+}
+
+func TestSetupWithSlogDebug(t *testing.T) {
+	// save original Setup function and restore it after test
+	defer lgr.Setup(lgr.Debug) // just use a simple option to reset
+
+	// create a buffer to capture output
+	buff := bytes.NewBuffer([]byte{})
+
+	// create a slog handler with the buffer
+	jsonHandler := slog.NewJSONHandler(buff, &slog.HandlerOptions{
+		Level: slog.LevelDebug,
+	})
+
+	// create slog logger with the handler
+	slogLogger := slog.New(jsonHandler)
+
+	// set up global logger with slog
+	lgr.SetupWithSlog(slogLogger)
+
+	// use global logger functions
+	lgr.Printf("DEBUG message via global logger")
+
+	// verify output
+	outStr := buff.String()
+	t.Logf("Global logger output: %s", outStr)
+	t.Logf("Buffer length: %d", len(outStr))
+
+	// parse JSON output
+	if outStr == "" {
+		t.Fatal("Expected output but buffer is empty - DEBUG message was filtered out")
+	}
+	var entry map[string]interface{}
+	err := json.Unmarshal([]byte(outStr), &entry)
+	require.NoError(t, err, "Output should be valid JSON")
+
+	// verify logger was set up correctly
+	assert.Equal(t, "DEBUG", entry["level"])
 	assert.Equal(t, "message via global logger", entry["msg"])
 	assert.Contains(t, entry, "time")
 }

@@ -92,7 +92,7 @@ func TestLoggerWithDbg(t *testing.T) {
 	rerr.Reset()
 	l.Logf("[DEBUG] something 123 %s", "err")
 	assert.Equal(t, "2018/01/07 13:02:34.000 DEBUG something 123 err\n", rout.String())
-	assert.Equal(t, "", rerr.String())
+	assert.Empty(t, rerr.String())
 
 	l = New(Debug, Out(rout), Err(rerr), Format(ShortDebug)) // caller file only
 	l.now = func() time.Time { return time.Date(2018, 1, 7, 13, 2, 34, 0, time.Local) }
@@ -330,7 +330,7 @@ func TestLoggerWithPanic(t *testing.T) {
 	assert.Equal(t, 1, fatalCalls)
 	assert.Equal(t, "2018/01/07 13:02:34.000 PANIC (lgr.TestLoggerWithPanic) oh my, panic now! bad thing happened\n", rout.String())
 
-	t.Logf(rerr.String()) //nolint:govet
+	t.Log(rerr.String()) //nolint:govet
 	assert.True(t, strings.HasPrefix(rerr.String(), "2018/01/07 13:02:34.000 PANIC"))
 	assert.Contains(t, rerr.String(), "github.com/go-pkgz/lgr.getDump")
 	assert.Contains(t, rerr.String(), "/lgr/logger.go:")
@@ -399,8 +399,8 @@ func TestLoggerConcurrent(t *testing.T) {
 	}
 	wg.Wait()
 
-	assert.Equal(t, 1001, len(strings.Split(rout.String(), "\n")))
-	assert.Equal(t, "", rerr.String())
+	assert.Len(t, strings.Split(rout.String(), "\n"), 1001)
+	assert.Empty(t, rerr.String())
 }
 
 func TestLoggerWithLevelBraces(t *testing.T) {
@@ -447,7 +447,7 @@ func TestLoggerWithTrace(t *testing.T) {
 	rout.Reset()
 	rerr.Reset()
 	l.Logf("[TRACE] something 123 %s", "err")
-	assert.Equal(t, "", rout.String())
+	assert.Empty(t, rout.String())
 
 	l = New(Trace, Out(rout), Err(rerr), CallerPkg)
 	l.now = func() time.Time { return time.Date(2018, 1, 7, 13, 2, 34, 123000000, time.Local) }

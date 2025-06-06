@@ -43,7 +43,7 @@ func TestNoOp(t *testing.T) {
 	defer log.SetOutput(os.Stdout)
 
 	NoOp.Logf("blah %s %d something", "str", 123)
-	assert.Equal(t, "", buff.String())
+	assert.Empty(t, buff.String())
 }
 
 func TestDefault(t *testing.T) {
@@ -60,7 +60,7 @@ func TestDefault(t *testing.T) {
 
 	buff.Reset()
 	Printf("[DEBUG] something 123 %s", "xyz")
-	assert.Equal(t, "", buff.String())
+	assert.Empty(t, buff.String())
 
 	buff.Reset()
 	Print("[WARN] something 123 % %% %3A%2F%")
