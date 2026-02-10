@@ -193,6 +193,73 @@ func TestFromSlogHandlerJSON(t *testing.T) {
 	assert.Equal(t, "DEBUG", entry["level"])
 }
 
+func TestFromSlogHandlerJSONAddSourceFalse(t *testing.T) {
+	buff := bytes.NewBuffer([]byte{})
+
+	jsonHandler := slog.NewJSONHandler(buff, &slog.HandlerOptions{
+		Level:     slog.LevelDebug,
+		AddSource: false,
+	})
+
+	logger := lgr.FromSlogHandler(jsonHandler)
+	logger.Logf("DEBUG debug from lgr")
+
+	var entry map[string]interface{}
+	lines := bytes.Split(bytes.TrimSpace(buff.Bytes()), []byte("\n"))
+	err := json.Unmarshal(lines[0], &entry)
+	require.NoError(t, err)
+	assert.Equal(t, "debug from lgr", entry["msg"])
+	assert.Equal(t, "DEBUG", entry["level"])
+
+	_, hasSource := entry["source"]
+	assert.False(t, hasSource, "expected no source field when AddSource is false")
+}
+
+func TestFromSlogHandlerJSONAddSourceTrue(t *testing.T) {
+	buff := bytes.NewBuffer([]byte{})
+
+	jsonHandler := slog.NewJSONHandler(buff, &slog.HandlerOptions{
+		Level:     slog.LevelDebug,
+		AddSource: true,
+	})
+
+	logger := lgr.FromSlogHandler(jsonHandler)
+	logger.Logf("INFO info from lgr")
+
+	var entry map[string]interface{}
+	err := json.Unmarshal(buff.Bytes(), &entry)
+	require.NoError(t, err)
+	assert.Equal(t, "info from lgr", entry["msg"])
+
+	source, hasSource := entry["source"].(map[string]interface{})
+	require.True(t, hasSource, "expected source field when AddSource is true")
+	assert.Contains(t, source["file"], "slog_test.go")
+	assert.Contains(t, source["function"], "TestFromSlogHandlerJSONAddSourceTrue")
+}
+
+func TestDirect_SlogHandlerAddSource(t *testing.T) {
+	buff := bytes.NewBuffer([]byte{})
+
+	jsonHandler := slog.NewJSONHandler(buff, &slog.HandlerOptions{
+		Level:     slog.LevelDebug,
+		AddSource: true,
+	})
+
+	// use lgr.New with SlogHandler option (the Logger.logf path)
+	logger := lgr.New(lgr.SlogHandler(jsonHandler), lgr.Debug)
+	logger.Logf("INFO message via lgr.New")
+
+	var entry map[string]interface{}
+	err := json.Unmarshal(buff.Bytes(), &entry)
+	require.NoError(t, err)
+	assert.Equal(t, "message via lgr.New", entry["msg"])
+
+	source, hasSource := entry["source"].(map[string]interface{})
+	require.True(t, hasSource, "expected source field when AddSource is true via lgr.New path")
+	assert.Contains(t, source["file"], "slog_test.go")
+	assert.Contains(t, source["function"], "TestDirect_SlogHandlerAddSource")
+}
+
 func TestDirect_SlogHandler(t *testing.T) {
 	buff := bytes.NewBuffer([]byte{})
 	out := io.MultiWriter(os.Stdout, buff)
