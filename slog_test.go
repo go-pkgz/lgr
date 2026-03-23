@@ -7,6 +7,7 @@ import (
 	"io"
 	"log/slog"
 	"os"
+	"regexp"
 	"strings"
 	"testing"
 	"time"
@@ -38,9 +39,49 @@ func TestSlogHandlerBasic(t *testing.T) {
 	// verify output
 	outStr := buff.String()
 	assert.Contains(t, outStr, "DEBUG debug message")
-	assert.Contains(t, outStr, "INFO info message")
-	assert.Contains(t, outStr, "WARN warn message")
+	assert.Contains(t, outStr, "INFO  info message")
+	assert.Contains(t, outStr, "WARN  warn message")
 	assert.Contains(t, outStr, "ERROR error message")
+}
+
+func TestSlogHandlerNoDuplication(t *testing.T) {
+	buff := bytes.NewBuffer([]byte{})
+	logger := lgr.New(lgr.Out(buff), lgr.Err(buff), lgr.Debug, lgr.Msec)
+
+	handler := lgr.ToSlogHandler(logger)
+	slogger := slog.New(handler)
+
+	t.Run("info level not duplicated", func(t *testing.T) {
+		buff.Reset()
+		slogger.Info("test message", "key1", "value1")
+		line := buff.String()
+		t.Logf("output: %s", line)
+		// time and level must appear exactly once
+		assert.Equal(t, 1, strings.Count(line, "INFO"), "INFO level should appear once, got: %s", line)
+		assert.Contains(t, line, "test message")
+		assert.Contains(t, line, `key1="value1"`)
+	})
+
+	t.Run("debug level not duplicated", func(t *testing.T) {
+		buff.Reset()
+		slogger.Debug("debug msg")
+		line := buff.String()
+		t.Logf("output: %s", line)
+		assert.Equal(t, 1, strings.Count(line, "DEBUG"), "DEBUG level should appear once, got: %s", line)
+		// must not contain INFO for a debug message
+		assert.NotContains(t, line, "INFO")
+		assert.Contains(t, line, "debug msg")
+	})
+
+	t.Run("timestamp not duplicated", func(t *testing.T) {
+		buff.Reset()
+		slogger.Info("ts test")
+		line := buff.String()
+		t.Logf("output: %s", line)
+		// count date patterns (YYYY/MM/DD) — should be exactly one
+		re := regexp.MustCompile(`\d{4}/\d{2}/\d{2}`)
+		assert.Len(t, re.FindAllString(line, -1), 1, "timestamp should appear once, got: %s", line)
+	})
 }
 
 func TestSlogHandlerAttributes(t *testing.T) {
@@ -90,7 +131,7 @@ func TestSlogHandlerWithAttrs(t *testing.T) {
 
 	// verify predefined attributes were included
 	outStr := buff.String()
-	assert.Contains(t, outStr, "INFO message with predefined attrs")
+	assert.Contains(t, outStr, "INFO  message with predefined attrs")
 	assert.Contains(t, outStr, "service=\"test\"")
 	assert.Contains(t, outStr, "version=1")
 }
@@ -113,7 +154,7 @@ func TestSlogHandlerWithGroup(t *testing.T) {
 
 	// verify group prefix was added to attribute keys
 	outStr := buff.String()
-	assert.Contains(t, outStr, "INFO grouped message")
+	assert.Contains(t, outStr, "INFO  grouped message")
 	assert.Contains(t, outStr, "request.id=\"123\"")
 	assert.Contains(t, outStr, "request.method=\"GET\"")
 }
@@ -640,7 +681,7 @@ func TestLevelConversion(t *testing.T) {
 	// test using ToSlogHandler and FromSlogHandler to verify level mappings both ways
 
 	buff := bytes.NewBuffer([]byte{})
-	logger := lgr.New(lgr.Out(buff), lgr.Debug)
+	logger := lgr.New(lgr.Out(buff), lgr.Trace)
 
 	// create slog handler from lgr
 	handler := lgr.ToSlogHandler(logger)
@@ -652,11 +693,11 @@ func TestLevelConversion(t *testing.T) {
 
 	buff.Reset()
 	slogger.Info("info level test")
-	assert.Contains(t, buff.String(), "INFO info level test")
+	assert.Contains(t, buff.String(), "INFO  info level test")
 
 	buff.Reset()
 	slogger.Warn("warn level test")
-	assert.Contains(t, buff.String(), "WARN warn level test")
+	assert.Contains(t, buff.String(), "WARN  warn level test")
 
 	buff.Reset()
 	slogger.Error("error level test")
@@ -665,11 +706,7 @@ func TestLevelConversion(t *testing.T) {
 	// test trace level by using a low-level debug
 	buff.Reset()
 	ctx := context.Background()
-	record := slog.Record{
-		Time:    time.Now(),
-		Message: "trace level test",
-		Level:   slog.LevelDebug - 4,
-	}
+	record := slog.NewRecord(time.Now(), slog.LevelDebug-4, "trace level test", 0)
 	_ = handler.Handle(ctx, record)
 	assert.Contains(t, buff.String(), "TRACE trace level test")
 }
