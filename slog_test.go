@@ -951,3 +951,17 @@ func (h *erroringHandler) WithAttrs(_ []slog.Attr) slog.Handler {
 func (h *erroringHandler) WithGroup(_ string) slog.Handler {
 	return h
 }
+
+func TestDirect_SlogHandlerSecrets(t *testing.T) {
+	buff := bytes.NewBuffer([]byte{})
+	jsonHandler := slog.NewJSONHandler(buff, &slog.HandlerOptions{Level: slog.LevelDebug})
+	logger := lgr.New(lgr.SlogHandler(jsonHandler), lgr.Debug, lgr.Secret("password123", "topsecret"))
+
+	logger.Logf("INFO auth with password123 and topsecret")
+
+	var entry map[string]interface{}
+	require.NoError(t, json.Unmarshal(buff.Bytes(), &entry))
+	assert.Equal(t, "auth with ****** and ******", entry["msg"])
+	assert.NotContains(t, buff.String(), "password123")
+	assert.NotContains(t, buff.String(), "topsecret")
+}
