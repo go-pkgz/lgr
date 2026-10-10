@@ -63,7 +63,8 @@ type Logger struct {
 	levelBraces    bool         // encloses level with [], i.e. [INFO]
 	callerDepth    int          // how many stack frames to skip, relative to the real (reported) frame
 	format         string       // layout template
-	secrets        [][]byte     // sub-strings to secrets by matching
+	secrets        secretSet    // sub-strings to hide in this logger's output
+	shared         *secretSet   // package-level secrets hidden in addition to own ones, nil for loggers made by New
 	mapper         Mapper       // map (alter) output based on levels
 	slogHandler    slog.Handler // optional slog handler to delegate logging
 
@@ -165,9 +166,11 @@ func (l *Logger) logf(format string, args ...interface{}) {
 	}
 
 	// hide secrets in the message itself, covers slog handler and panic dump paths
-	// as well as the formatted line redacted later in this function
-	if len(l.secrets) > 0 {
-		msg = string(l.hideSecrets([]byte(msg)))
+	// as well as the formatted line redacted later in this function.
+	// reuse both snapshots so the message and the final line use the same secrets
+	own, shared := l.secrets.list(), l.shared.list()
+	if len(own)+len(shared) > 0 {
+		msg = string(own.hide([]byte(msg), shared))
 	}
 
 	// if slog handler is set, use it
@@ -222,7 +225,7 @@ func (l *Logger) logf(format string, args ...interface{}) {
 		data = bytes.Replace(data, []byte("[WARN ]"), []byte("[WARN] "), 1)
 		data = bytes.Replace(data, []byte("[INFO ]"), []byte("[INFO] "), 1)
 	}
-	data = l.hideSecrets(data)
+	data = own.hide(data, shared)
 
 	l.lock.Lock()
 	_, _ = l.stdout.Write(data)
@@ -258,11 +261,16 @@ func (l *Logger) logf(format string, args ...interface{}) {
 	l.lock.Unlock()
 }
 
-func (l *Logger) hideSecrets(data []byte) []byte {
-	for _, h := range l.secrets {
-		data = bytes.ReplaceAll(data, h, secretReplacement)
-	}
-	return data
+// AddSecrets adds values to hide in this logger's output. Safe to call while other goroutines log.
+// Empty and whitespace-only values are ignored.
+func (l *Logger) AddSecrets(vals ...string) {
+	l.secrets.add(vals...)
+}
+
+// RemoveSecrets stops hiding values in this logger's output, the ones set by Secret option too.
+// Package-level secrets are not affected.
+func (l *Logger) RemoveSecrets(vals ...string) {
+	l.secrets.remove(vals...)
 }
 
 type callerInfo struct {

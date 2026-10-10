@@ -602,3 +602,120 @@ var testDir = func() string {
 	}
 	return wd[strings.LastIndex(wd, "/")+1:]
 }()
+
+func TestLogger_SecretsLongestFirst(t *testing.T) {
+	rout := bytes.NewBuffer([]byte{})
+	l := New(Out(rout), Err(rout), Format(Short), Secret("abc", "abcdef"))
+	l.now = func() time.Time { return time.Date(2018, 1, 7, 13, 2, 34, 0, time.Local) }
+	l.Logf("INFO token abcdef and abc")
+	assert.Equal(t, "2018/01/07 13:02:34 INFO  token ****** and ******\n", rout.String())
+}
+
+func TestLogger_AddRemoveSecrets(t *testing.T) {
+	rout := bytes.NewBuffer([]byte{})
+	l := New(Out(rout), Err(rout), Format(Short), Secret("password"))
+	l.now = func() time.Time { return time.Date(2018, 1, 7, 13, 2, 34, 0, time.Local) }
+
+	l.Logf("INFO password token1 token2")
+	assert.Equal(t, "2018/01/07 13:02:34 INFO  ****** token1 token2\n", rout.String())
+
+	rout.Reset()
+	l.AddSecrets("token1", "token2", "", " ")
+	l.AddSecrets("token1")
+	l.Logf("INFO password token1 token2")
+	assert.Equal(t, "2018/01/07 13:02:34 INFO  ****** ****** ******\n", rout.String())
+
+	rout.Reset()
+	l.RemoveSecrets("token1", "password")
+	l.Logf("INFO password token1 token2")
+	assert.Equal(t, "2018/01/07 13:02:34 INFO  password token1 ******\n", rout.String())
+}
+
+func TestLogger_SecretsReadOncePerLine(t *testing.T) {
+	rout := bytes.NewBuffer([]byte{})
+	var l *Logger
+	removeAndLeak := func(s string) string {
+		l.RemoveSecrets("token1")
+		return s + " token1"
+	}
+	mapper := nopMapper
+	mapper.MessageFunc = removeAndLeak
+	l = New(Out(rout), Err(rout), Secret("token1"), Map(mapper))
+	l.now = func() time.Time { return time.Date(2018, 1, 7, 13, 2, 34, 0, time.Local) }
+
+	l.Logf("INFO first")
+	assert.Equal(t, "2018/01/07 13:02:34 INFO  first ******\n", rout.String(), "secret removed mid-line is still hidden in that line")
+
+	rout.Reset()
+	l.Logf("INFO second")
+	assert.Equal(t, "2018/01/07 13:02:34 INFO  second token1\n", rout.String())
+}
+
+func TestLogger_NewIgnoresPackageSecrets(t *testing.T) {
+	AddSecrets("pkg-secret")
+	defer RemoveSecrets("pkg-secret")
+
+	rout := bytes.NewBuffer([]byte{})
+	l := New(Out(rout), Err(rout), Format(Short))
+	l.now = func() time.Time { return time.Date(2018, 1, 7, 13, 2, 34, 0, time.Local) }
+	l.Logf("INFO with pkg-secret")
+	assert.Equal(t, "2018/01/07 13:02:34 INFO  with pkg-secret\n", rout.String())
+}
+
+func TestLogger_SecretsChangedWhileLogging(t *testing.T) {
+	rout := &syncBuffer{}
+	l := New(Out(rout), Err(rout), Format(Short), Secret("initial"))
+	l.now = func() time.Time { return time.Date(2018, 1, 7, 13, 2, 34, 0, time.Local) }
+
+	var wg sync.WaitGroup
+	for i := 0; i < 8; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for j := 0; j < 500; j++ {
+				l.Logf("INFO initial kept dropped %d", j)
+			}
+		}()
+	}
+	for i := 0; i < 4; i++ {
+		wg.Add(1)
+		go func(i int) {
+			defer wg.Done()
+			for j := 0; j < 200; j++ {
+				v := "tmp-" + strconv.Itoa(i) + "-" + strconv.Itoa(j)
+				l.AddSecrets(v, "kept", "dropped")
+				l.RemoveSecrets(v)
+			}
+		}(i)
+	}
+	wg.Wait()
+	assert.NotContains(t, rout.String(), "initial")
+
+	l.RemoveSecrets("dropped")
+	rout.Reset()
+	l.Logf("INFO initial kept dropped tmp-0-0")
+	assert.Equal(t, "2018/01/07 13:02:34 INFO  ****** ****** dropped tmp-0-0\n", rout.String())
+}
+
+type syncBuffer struct {
+	mu  sync.Mutex
+	buf bytes.Buffer
+}
+
+func (b *syncBuffer) Write(p []byte) (int, error) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return b.buf.Write(p)
+}
+
+func (b *syncBuffer) String() string {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return b.buf.String()
+}
+
+func (b *syncBuffer) Reset() {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	b.buf.Reset()
+}

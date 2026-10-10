@@ -973,3 +973,12 @@ var srcDir = func() string {
 	}
 	return wd[strings.LastIndex(wd, "/")+1:]
 }()
+
+func TestDirect_SlogHandlerAddSecrets(t *testing.T) {
+	buff := bytes.NewBuffer([]byte{})
+	logger := lgr.New(lgr.SlogHandler(slog.NewTextHandler(buff, nil)))
+	logger.AddSecrets("token1")
+	logger.Logf("INFO auth with token1")
+	assert.Contains(t, buff.String(), "auth with ******")
+	assert.NotContains(t, buff.String(), "token1")
+}

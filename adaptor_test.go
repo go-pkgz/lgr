@@ -69,3 +69,20 @@ func TestSetupStdLogger(t *testing.T) {
 	log.Print("[DEBUG] something\n")
 	assert.Empty(t, rout.String())
 }
+
+func TestSetupStdLogger_PackageSecrets(t *testing.T) {
+	defer RemoveSecrets("token1", "token2")
+
+	AddSecrets("token1")
+	rout := bytes.NewBuffer([]byte{})
+	SetupStdLogger(Out(rout), Err(rout), Format(Short), Secret("own-secret"))
+	AddSecrets("token2")
+
+	log.Print("own-secret token1 token2 other")
+	assert.Contains(t, rout.String(), " INFO  ****** ****** ****** other\n")
+
+	rout.Reset()
+	RemoveSecrets("token1")
+	log.Printf("[WARN] own-secret token1 token2 %s", "other")
+	assert.Contains(t, rout.String(), " WARN  ****** token1 ****** other\n")
+}

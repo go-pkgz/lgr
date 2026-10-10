@@ -101,3 +101,74 @@ func TestDefaultFatal(t *testing.T) {
 	assert.Equal(t, "2018/01/07 13:02:34 ERROR something 123 xyz\n", buff.String())
 	assert.Equal(t, 1, fatal)
 }
+
+func TestAddRemoveSecrets(t *testing.T) {
+	buff := bytes.NewBuffer([]byte{})
+	Setup(Out(buff), Err(buff), Format(Short), Secret("own-secret"))
+	def.now = func() time.Time { return time.Date(2018, 1, 7, 13, 2, 34, 0, time.Local) }
+	defer Setup()
+	defer RemoveSecrets("token1", "token2", "own-secret-long")
+
+	AddSecrets("token1", "token2", "", " ")
+	Printf("INFO own-secret token1 token2")
+	assert.Equal(t, "2018/01/07 13:02:34 INFO  ****** ****** ******\n", buff.String())
+
+	buff.Reset()
+	Default().Logf("INFO own-secret token1 token2")
+	assert.Equal(t, "2018/01/07 13:02:34 INFO  ****** ****** ******\n", buff.String())
+
+	buff.Reset()
+	AddSecrets("own-secret-long")
+	Printf("INFO own-secret-long")
+	assert.Equal(t, "2018/01/07 13:02:34 INFO  ******\n", buff.String(), "longer package secret wins over the logger's own")
+
+	buff.Reset()
+	RemoveSecrets("token1", "own-secret")
+	Printf("INFO own-secret token1 token2")
+	assert.Equal(t, "2018/01/07 13:02:34 INFO  ****** token1 ******\n", buff.String(), "package remove keeps the logger's own secret")
+}
+
+func TestAddSecretsSurvivesSetup(t *testing.T) {
+	AddSecrets("token1")
+	defer RemoveSecrets("token1")
+	defer Setup()
+
+	buff := bytes.NewBuffer([]byte{})
+	Setup(Out(buff), Err(buff), Format(Short))
+	def.now = func() time.Time { return time.Date(2018, 1, 7, 13, 2, 34, 0, time.Local) }
+	Printf("INFO with token1")
+	assert.Equal(t, "2018/01/07 13:02:34 INFO  with ******\n", buff.String())
+}
+
+func TestAddSecretsWhilePrinting(t *testing.T) {
+	rout := &syncBuffer{}
+	Setup(Out(rout), Err(rout))
+	defer Setup()
+	defer RemoveSecrets("kept")
+	AddSecrets("kept")
+
+	done := make(chan struct{})
+	for i := 0; i < 8; i++ {
+		go func() {
+			for j := 0; j < 500; j++ {
+				Printf("INFO kept %d", j)
+			}
+			done <- struct{}{}
+		}()
+	}
+	for i := 0; i < 4; i++ {
+		go func(i int) {
+			for j := 0; j < 200; j++ {
+				v := fmt.Sprintf("tmp-%d-%d", i, j)
+				AddSecrets(v, "kept")
+				RemoveSecrets(v)
+			}
+			done <- struct{}{}
+		}(i)
+	}
+	for i := 0; i < 12; i++ {
+		<-done
+	}
+	assert.NotContains(t, rout.String(), "kept")
+	assert.Equal(t, []string{"kept"}, secretStrings(sharedSecrets.list()))
+}
