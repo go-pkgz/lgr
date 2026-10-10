@@ -7,7 +7,9 @@ import (
 	"io"
 	"log/slog"
 	"os"
+	"path"
 	"regexp"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -967,11 +969,11 @@ func TestDirect_SlogHandlerSecrets(t *testing.T) {
 }
 
 var srcDir = func() string {
-	wd, err := os.Getwd()
-	if err != nil {
-		panic(err)
+	_, file, _, ok := runtime.Caller(0)
+	if !ok {
+		panic("can't get caller info")
 	}
-	return wd[strings.LastIndex(wd, "/")+1:]
+	return path.Base(path.Dir(file))
 }()
 
 func TestDirect_SlogHandlerAddSecrets(t *testing.T) {
