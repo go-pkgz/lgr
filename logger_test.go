@@ -54,22 +54,22 @@ func TestLoggerWithDbg(t *testing.T) {
 		rout, rerr string
 	}{
 		{"aaa", []interface{}{},
-			"2018/01/07 13:02:34.123 INFO  (lgr/logger_test.go:83 lgr.TestLoggerWithDbg.func2) aaa\n", ""},
+			"2018/01/07 13:02:34.123 INFO  (" + testDir + "/logger_test.go:83 lgr.TestLoggerWithDbg.func2) aaa\n", ""},
 		{"DEBUG something 123 %s", []interface{}{"aaa"},
-			"2018/01/07 13:02:34.123 DEBUG (lgr/logger_test.go:83 lgr.TestLoggerWithDbg.func2) something 123 aaa\n", ""},
+			"2018/01/07 13:02:34.123 DEBUG (" + testDir + "/logger_test.go:83 lgr.TestLoggerWithDbg.func2) something 123 aaa\n", ""},
 		{"[DEBUG] something 123 %s", []interface{}{"aaa"},
-			"2018/01/07 13:02:34.123 DEBUG (lgr/logger_test.go:83 lgr.TestLoggerWithDbg.func2) something 123 aaa\n", ""},
+			"2018/01/07 13:02:34.123 DEBUG (" + testDir + "/logger_test.go:83 lgr.TestLoggerWithDbg.func2) something 123 aaa\n", ""},
 		{"INFO something 123 %s", []interface{}{"aaa"},
-			"2018/01/07 13:02:34.123 INFO  (lgr/logger_test.go:83 lgr.TestLoggerWithDbg.func2) something 123 aaa\n", ""},
+			"2018/01/07 13:02:34.123 INFO  (" + testDir + "/logger_test.go:83 lgr.TestLoggerWithDbg.func2) something 123 aaa\n", ""},
 		{"[INFO] something 123 %s", []interface{}{"aaa"},
-			"2018/01/07 13:02:34.123 INFO  (lgr/logger_test.go:83 lgr.TestLoggerWithDbg.func2) something 123 aaa\n", ""},
+			"2018/01/07 13:02:34.123 INFO  (" + testDir + "/logger_test.go:83 lgr.TestLoggerWithDbg.func2) something 123 aaa\n", ""},
 		{"blah something 123 %s", []interface{}{"aaa"},
-			"2018/01/07 13:02:34.123 INFO  (lgr/logger_test.go:83 lgr.TestLoggerWithDbg.func2) blah something 123 aaa\n", ""},
+			"2018/01/07 13:02:34.123 INFO  (" + testDir + "/logger_test.go:83 lgr.TestLoggerWithDbg.func2) blah something 123 aaa\n", ""},
 		{"WARN something 123 %s", []interface{}{"aaa"},
-			"2018/01/07 13:02:34.123 WARN  (lgr/logger_test.go:83 lgr.TestLoggerWithDbg.func2) something 123 aaa\n", ""},
+			"2018/01/07 13:02:34.123 WARN  (" + testDir + "/logger_test.go:83 lgr.TestLoggerWithDbg.func2) something 123 aaa\n", ""},
 		{"ERROR something 123 %s", []interface{}{"aaa"},
-			"2018/01/07 13:02:34.123 ERROR (lgr/logger_test.go:83 lgr.TestLoggerWithDbg.func2) something 123 aaa\n",
-			"2018/01/07 13:02:34.123 ERROR (lgr/logger_test.go:83 lgr.TestLoggerWithDbg.func2) something 123 aaa\n"},
+			"2018/01/07 13:02:34.123 ERROR (" + testDir + "/logger_test.go:83 lgr.TestLoggerWithDbg.func2) something 123 aaa\n",
+			"2018/01/07 13:02:34.123 ERROR (" + testDir + "/logger_test.go:83 lgr.TestLoggerWithDbg.func2) something 123 aaa\n"},
 	}
 
 	rout, rerr := bytes.NewBuffer([]byte{}), bytes.NewBuffer([]byte{})
@@ -99,7 +99,7 @@ func TestLoggerWithDbg(t *testing.T) {
 	rout.Reset()
 	rerr.Reset()
 	l.Logf("[DEBUG] something 123 %s", "err")
-	assert.Equal(t, "2018/01/07 13:02:34.000 DEBUG (lgr/logger_test.go:101) something 123 err\n", rout.String())
+	assert.Equal(t, "2018/01/07 13:02:34.000 DEBUG ("+testDir+"/logger_test.go:101) something 123 err\n", rout.String())
 
 	f := `{{.DT.Format "2006/01/02 15:04:05.000"}} {{.Level}} ({{.CallerFunc}}) {{.Message}}`
 	l = New(Debug, Out(rout), Err(rerr), Format(f)) // caller func only
@@ -115,7 +115,7 @@ func TestLoggerWithPkg(t *testing.T) {
 	l := New(Debug, Out(rout), Err(rerr), Format(WithPkg))
 	l.now = func() time.Time { return time.Date(2018, 1, 7, 13, 2, 34, 123000000, time.Local) }
 	l.Logf("[DEBUG] something 123 %s", "err")
-	assert.Equal(t, "2018/01/07 13:02:34.123 DEBUG (lgr) something 123 err\n", rout.String())
+	assert.Equal(t, "2018/01/07 13:02:34.123 DEBUG ("+testDir+") something 123 err\n", rout.String())
 }
 
 func TestLoggerWithCallerDepth(t *testing.T) {
@@ -128,7 +128,7 @@ func TestLoggerWithCallerDepth(t *testing.T) {
 	}
 	f(l1)
 
-	assert.Equal(t, "2018/01/07 13:02:34.123 DEBUG (lgr/logger_test.go:129 lgr.TestLoggerWithCallerDepth) something 123 err\n",
+	assert.Equal(t, "2018/01/07 13:02:34.123 DEBUG ("+testDir+"/logger_test.go:129 lgr.TestLoggerWithCallerDepth) something 123 err\n",
 		rout.String())
 
 	rout.Reset()
@@ -136,7 +136,7 @@ func TestLoggerWithCallerDepth(t *testing.T) {
 	l2 := New(Debug, Out(rout), Err(rerr), Format(FullDebug), CallerDepth(0))
 	l2.now = func() time.Time { return time.Date(2018, 1, 7, 13, 2, 34, 123000000, time.Local) }
 	f(l2)
-	assert.Equal(t, "2018/01/07 13:02:34.123 DEBUG (lgr/logger_test.go:127 lgr.TestLoggerWithCallerDepth."+
+	assert.Equal(t, "2018/01/07 13:02:34.123 DEBUG ("+testDir+"/logger_test.go:127 lgr.TestLoggerWithCallerDepth."+
 		"func2) something 123 err\n", rout.String())
 }
 
@@ -333,7 +333,7 @@ func TestLoggerWithPanic(t *testing.T) {
 	t.Log(rerr.String()) //nolint:govet
 	assert.True(t, strings.HasPrefix(rerr.String(), "2018/01/07 13:02:34.000 PANIC"))
 	assert.Contains(t, rerr.String(), "github.com/go-pkgz/lgr.getDump")
-	assert.Contains(t, rerr.String(), "/lgr/logger.go:")
+	assert.Contains(t, rerr.String(), "/"+testDir+"/logger.go:")
 
 	rout.Reset()
 	rerr.Reset()
@@ -353,7 +353,7 @@ func TestLoggerWithPanic(t *testing.T) {
 	assert.Equal(t, "2018/01/07 13:02:34 PANIC oh my, panic now! bad thing happened\n", rout.String())
 	assert.True(t, strings.HasPrefix(rerr.String(), "2018/01/07 13:02:34 PANIC"))
 	assert.Contains(t, rerr.String(), "github.com/go-pkgz/lgr.getDump")
-	assert.Contains(t, rerr.String(), "/lgr/logger.go:")
+	assert.Contains(t, rerr.String(), "/"+testDir+"/logger.go:")
 }
 
 func TestLoggerErrorWithDump(t *testing.T) {
@@ -365,7 +365,7 @@ func TestLoggerErrorWithDump(t *testing.T) {
 	assert.Equal(t, "2018/01/07 13:02:34.000 ERROR (lgr.TestLoggerErrorWithDump) oh my, error now! bad thing happened", lines[0])
 	assert.Equal(t, ">>> stack trace:", lines[1])
 	assert.Contains(t, lines[2], "github.com/go-pkgz/lgr.TestLoggerErrorWithDump(")
-	assert.Contains(t, lines[3], "lgr/logger_test.go:363")
+	assert.Contains(t, lines[3], testDir+"/logger_test.go:363")
 }
 
 func TestLoggerWithErrorSameOutputs(t *testing.T) {
@@ -454,7 +454,7 @@ func TestLoggerWithTrace(t *testing.T) {
 	rout.Reset()
 	rerr.Reset()
 	l.Logf("[TRACE] something 123 %s", "err")
-	assert.Equal(t, "2018/01/07 13:02:34 TRACE {lgr} something 123 err\n", rout.String())
+	assert.Equal(t, "2018/01/07 13:02:34 TRACE {"+testDir+"} something 123 err\n", rout.String())
 }
 
 func TestLoggerWithInvalidTemplate(t *testing.T) {
@@ -594,3 +594,11 @@ func BenchmarkWithDbgAndFormat(b *testing.B) {
 		l.Logf("INFO test test 123 debug message #%d, %v", n, e)
 	}
 }
+
+var testDir = func() string {
+	wd, err := os.Getwd()
+	if err != nil {
+		panic(err)
+	}
+	return wd[strings.LastIndex(wd, "/")+1:]
+}()
