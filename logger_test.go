@@ -739,3 +739,36 @@ func TestLogger_MapperWithNilFuncs(t *testing.T) {
 		})
 	}
 }
+
+func TestLogger_TraceRegexDropsLoggerFrames(t *testing.T) {
+	caller := "main.doWork(...)\n\t/app/main.go:16\nmain.main()\n\t/app/main.go:12 +0xe0\n"
+	printf := "github.com/go-pkgz/lgr.Printf(...)\n\t/src/lgr/interface.go:31\n"
+	tbl := []struct {
+		name  string
+		stack string
+		want  string
+	}{
+		{name: "module cache", want: caller, stack: "goroutine 1 [running]:\n" +
+			"github.com/go-pkgz/lgr.(*Logger).logf(0x1, {0x2?, 0x3?}, {0x4?, 0x5?, 0x6?})\n" +
+			"\t/home/user/go/pkg/mod/github.com/go-pkgz/lgr@v0.12.4/logger.go:238 +0x944\n" +
+			"github.com/go-pkgz/lgr.(*Logger).Logf(...)\n" +
+			"\t/home/user/go/pkg/mod/github.com/go-pkgz/lgr@v0.12.4/logger.go:147\n" + caller},
+		{name: "vendored with prefix", want: caller, stack: "goroutine 1 [running]:\n" +
+			"app/vendor/github.com/go-pkgz/lgr.(*Logger).logf(0x1, {0x2, 0x3}, {0x4, 0x5, 0x6})\n" +
+			"\t/app/vendor/github.com/go-pkgz/lgr/logger.go:238 +0x944\n" +
+			"app/vendor/github.com/go-pkgz/lgr.(*Logger).Logf(...)\n" +
+			"\t/app/vendor/github.com/go-pkgz/lgr/logger.go:147\n" + caller},
+		{name: "renamed checkout", want: caller, stack: "goroutine 1 [running]:\n" +
+			"github.com/go-pkgz/lgr.(*Logger).logf(0x1, {0x2, 0x3}, {0x4, 0x5, 0x6})\n" +
+			"\t/src/some-other-name/logger.go:238 +0x944\n" + caller},
+		{name: "package Printf frame is kept", want: printf + caller, stack: "goroutine 1 [running]:\n" +
+			"github.com/go-pkgz/lgr.(*Logger).logf(0x1, {0x2, 0x3}, {0x4, 0x5, 0x6})\n" +
+			"\t/src/lgr/logger.go:238 +0x944\n" + printf + caller},
+	}
+	for _, tt := range tbl {
+		t.Run(tt.name, func(t *testing.T) {
+			parts := reTraceDefault.Split(tt.stack, -1)
+			assert.Equal(t, tt.want, parts[len(parts)-1])
+		})
+	}
+}

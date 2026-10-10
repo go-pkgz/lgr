@@ -46,7 +46,8 @@ const (
 var secretReplacement = []byte("******")
 
 var (
-	reTraceDefault = regexp.MustCompile(`.*/lgr/logger\.go.*\n`)
+	// match function names because source directories vary between builds
+	reTraceDefault = regexp.MustCompile(`(?m)^.*github\.com/go-pkgz/lgr\.\(\*Logger\)\.(?:logf|Logf)\([^\n]*\n[^\n]*\n`)
 	reTraceStd     = regexp.MustCompile(`.*/log/log\.go.*\n`)
 )
 
