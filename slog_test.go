@@ -7,7 +7,9 @@ import (
 	"io"
 	"log/slog"
 	"os"
+	"path"
 	"regexp"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -443,7 +445,7 @@ func TestSlogWithOptions(t *testing.T) {
 		t.Logf("Output with caller: %s", outStr)
 
 		// should contain caller file and function from slog handler
-		assert.Regexp(t, `\{lgr/slog\.go:\d+ lgr\.\(\*lgrSlogHandler\)\.Handle\}`, outStr,
+		assert.Regexp(t, `\{`+regexp.QuoteMeta(srcDir)+`/slog\.go:\d+ lgr\.\(\*lgrSlogHandler\)\.Handle\}`, outStr,
 			"Output should include caller file and function from handler")
 	})
 
@@ -478,7 +480,7 @@ func TestSlogWithOptions(t *testing.T) {
 		// 2. Caller info from lgr handler
 		assert.Regexp(t, `\d{4}/\d{2}/\d{2} \d{2}:\d{2}:\d{2}\.\d{3}`, outStr, "Should have timestamp with milliseconds")
 		assert.Contains(t, outStr, "message with complex options", "Should contain the message")
-		assert.Regexp(t, `\(lgr/slog\.go:\d+ lgr\.\(\*lgrSlogHandler\)\.Handle\)`, outStr, "Should include caller info from the handler")
+		assert.Regexp(t, `\(`+regexp.QuoteMeta(srcDir)+`/slog\.go:\d+ lgr\.\(\*lgrSlogHandler\)\.Handle\)`, outStr, "Should include caller info from the handler")
 	})
 
 	t.Run("mapper functions", func(t *testing.T) {
@@ -964,4 +966,21 @@ func TestDirect_SlogHandlerSecrets(t *testing.T) {
 	assert.Equal(t, "auth with ****** and ******", entry["msg"])
 	assert.NotContains(t, buff.String(), "password123")
 	assert.NotContains(t, buff.String(), "topsecret")
+}
+
+var srcDir = func() string {
+	_, file, _, ok := runtime.Caller(0)
+	if !ok {
+		panic("can't get caller info")
+	}
+	return path.Base(path.Dir(file))
+}()
+
+func TestDirect_SlogHandlerAddSecrets(t *testing.T) {
+	buff := bytes.NewBuffer([]byte{})
+	logger := lgr.New(lgr.SlogHandler(slog.NewTextHandler(buff, nil)))
+	logger.AddSecrets("token1")
+	logger.Logf("INFO auth with token1")
+	assert.Contains(t, buff.String(), "auth with ******")
+	assert.NotContains(t, buff.String(), "token1")
 }
