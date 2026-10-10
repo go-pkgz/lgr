@@ -91,7 +91,7 @@ Things to know:
 - Empty and whitespace-only values are ignored. Adding a value twice is the same as adding it once, and a single remove drops it.
 - The list of a logger and the package-level list are independent. A value present in both stays hidden until removed from both.
 - A line being logged at the moment of the change may still be written with the previous list.
-- Longer values are replaced first, so a secret containing another secret is hidden as a whole. Secrets that only partially overlap are replaced one after another and a part of the shorter one may stay visible.
+- Longer values are replaced first, so a secret containing another secret is hidden as a whole. Secrets that only partially overlap are replaced one after another, and a part of one of them may stay visible.
 - Secrets are hidden in the message passed to the logger. `lgr.FromSlogHandler` adds no masking of its own, the output is masked only if the wrapped handler passes it to a masking logger. Attributes added by a slog handler set with `lgr.SlogHandler` are not processed.
 
 ### levels
