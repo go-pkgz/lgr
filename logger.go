@@ -341,12 +341,17 @@ func (l *Logger) formatWithOptions(elems layout) (res string) {
 
 	parts := make([]string, 0, 4)
 
+	dt := orElse(l.msec,
+		func() string { return elems.DT.Format("2006/01/02 15:04:05.000") },
+		func() string { return elems.DT.Format("2006/01/02 15:04:05") },
+	)
+	if l.mapper.TimeFunc != nil {
+		dt = l.mapper.TimeFunc(dt)
+	}
+
 	parts = append(
 		parts,
-		l.mapper.TimeFunc(orElse(l.msec,
-			func() string { return elems.DT.Format("2006/01/02 15:04:05.000") },
-			func() string { return elems.DT.Format("2006/01/02 15:04:05") },
-		)),
+		dt,
 		l.levelMapper(elems.Level)(orElse(l.levelBraces,
 			func() string { return `[` + elems.Level + `]` },
 			func() string { return elems.Level },

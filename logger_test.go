@@ -719,3 +719,23 @@ func (b *syncBuffer) Reset() {
 	defer b.mu.Unlock()
 	b.buf.Reset()
 }
+
+func TestLogger_MapperWithNilFuncs(t *testing.T) {
+	tbl := []struct {
+		name   string
+		mapper Mapper
+		want   string
+	}{
+		{name: "message func only", mapper: Mapper{MessageFunc: strings.ToUpper}, want: "2018/01/07 13:02:34 INFO  SOMETHING 123\n"},
+		{name: "zero mapper", mapper: Mapper{}, want: "2018/01/07 13:02:34 INFO  something 123\n"},
+	}
+	for _, tt := range tbl {
+		t.Run(tt.name, func(t *testing.T) {
+			rout := bytes.NewBuffer([]byte{})
+			l := New(Out(rout), Err(rout), Map(tt.mapper))
+			l.now = func() time.Time { return time.Date(2018, 1, 7, 13, 2, 34, 0, time.Local) }
+			require.NotPanics(t, func() { l.Logf("INFO something 123") })
+			assert.Equal(t, tt.want, rout.String())
+		})
+	}
+}
