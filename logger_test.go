@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"log/slog"
 	"os"
 	"path"
 	"runtime"
@@ -56,22 +57,22 @@ func TestLoggerWithDbg(t *testing.T) {
 		rout, rerr string
 	}{
 		{"aaa", []interface{}{},
-			"2018/01/07 13:02:34.123 INFO  (" + testDir + "/logger_test.go:85 lgr.TestLoggerWithDbg.func2) aaa\n", ""},
+			"2018/01/07 13:02:34.123 INFO  (" + testDir + "/logger_test.go:86 lgr.TestLoggerWithDbg.func2) aaa\n", ""},
 		{"DEBUG something 123 %s", []interface{}{"aaa"},
-			"2018/01/07 13:02:34.123 DEBUG (" + testDir + "/logger_test.go:85 lgr.TestLoggerWithDbg.func2) something 123 aaa\n", ""},
+			"2018/01/07 13:02:34.123 DEBUG (" + testDir + "/logger_test.go:86 lgr.TestLoggerWithDbg.func2) something 123 aaa\n", ""},
 		{"[DEBUG] something 123 %s", []interface{}{"aaa"},
-			"2018/01/07 13:02:34.123 DEBUG (" + testDir + "/logger_test.go:85 lgr.TestLoggerWithDbg.func2) something 123 aaa\n", ""},
+			"2018/01/07 13:02:34.123 DEBUG (" + testDir + "/logger_test.go:86 lgr.TestLoggerWithDbg.func2) something 123 aaa\n", ""},
 		{"INFO something 123 %s", []interface{}{"aaa"},
-			"2018/01/07 13:02:34.123 INFO  (" + testDir + "/logger_test.go:85 lgr.TestLoggerWithDbg.func2) something 123 aaa\n", ""},
+			"2018/01/07 13:02:34.123 INFO  (" + testDir + "/logger_test.go:86 lgr.TestLoggerWithDbg.func2) something 123 aaa\n", ""},
 		{"[INFO] something 123 %s", []interface{}{"aaa"},
-			"2018/01/07 13:02:34.123 INFO  (" + testDir + "/logger_test.go:85 lgr.TestLoggerWithDbg.func2) something 123 aaa\n", ""},
+			"2018/01/07 13:02:34.123 INFO  (" + testDir + "/logger_test.go:86 lgr.TestLoggerWithDbg.func2) something 123 aaa\n", ""},
 		{"blah something 123 %s", []interface{}{"aaa"},
-			"2018/01/07 13:02:34.123 INFO  (" + testDir + "/logger_test.go:85 lgr.TestLoggerWithDbg.func2) blah something 123 aaa\n", ""},
+			"2018/01/07 13:02:34.123 INFO  (" + testDir + "/logger_test.go:86 lgr.TestLoggerWithDbg.func2) blah something 123 aaa\n", ""},
 		{"WARN something 123 %s", []interface{}{"aaa"},
-			"2018/01/07 13:02:34.123 WARN  (" + testDir + "/logger_test.go:85 lgr.TestLoggerWithDbg.func2) something 123 aaa\n", ""},
+			"2018/01/07 13:02:34.123 WARN  (" + testDir + "/logger_test.go:86 lgr.TestLoggerWithDbg.func2) something 123 aaa\n", ""},
 		{"ERROR something 123 %s", []interface{}{"aaa"},
-			"2018/01/07 13:02:34.123 ERROR (" + testDir + "/logger_test.go:85 lgr.TestLoggerWithDbg.func2) something 123 aaa\n",
-			"2018/01/07 13:02:34.123 ERROR (" + testDir + "/logger_test.go:85 lgr.TestLoggerWithDbg.func2) something 123 aaa\n"},
+			"2018/01/07 13:02:34.123 ERROR (" + testDir + "/logger_test.go:86 lgr.TestLoggerWithDbg.func2) something 123 aaa\n",
+			"2018/01/07 13:02:34.123 ERROR (" + testDir + "/logger_test.go:86 lgr.TestLoggerWithDbg.func2) something 123 aaa\n"},
 	}
 
 	rout, rerr := bytes.NewBuffer([]byte{}), bytes.NewBuffer([]byte{})
@@ -101,7 +102,7 @@ func TestLoggerWithDbg(t *testing.T) {
 	rout.Reset()
 	rerr.Reset()
 	l.Logf("[DEBUG] something 123 %s", "err")
-	assert.Equal(t, "2018/01/07 13:02:34.000 DEBUG ("+testDir+"/logger_test.go:103) something 123 err\n", rout.String())
+	assert.Equal(t, "2018/01/07 13:02:34.000 DEBUG ("+testDir+"/logger_test.go:104) something 123 err\n", rout.String())
 
 	f := `{{.DT.Format "2006/01/02 15:04:05.000"}} {{.Level}} ({{.CallerFunc}}) {{.Message}}`
 	l = New(Debug, Out(rout), Err(rerr), Format(f)) // caller func only
@@ -130,7 +131,7 @@ func TestLoggerWithCallerDepth(t *testing.T) {
 	}
 	f(l1)
 
-	assert.Equal(t, "2018/01/07 13:02:34.123 DEBUG ("+testDir+"/logger_test.go:131 lgr.TestLoggerWithCallerDepth) something 123 err\n",
+	assert.Equal(t, "2018/01/07 13:02:34.123 DEBUG ("+testDir+"/logger_test.go:132 lgr.TestLoggerWithCallerDepth) something 123 err\n",
 		rout.String())
 
 	rout.Reset()
@@ -138,7 +139,7 @@ func TestLoggerWithCallerDepth(t *testing.T) {
 	l2 := New(Debug, Out(rout), Err(rerr), Format(FullDebug), CallerDepth(0))
 	l2.now = func() time.Time { return time.Date(2018, 1, 7, 13, 2, 34, 123000000, time.Local) }
 	f(l2)
-	assert.Equal(t, "2018/01/07 13:02:34.123 DEBUG ("+testDir+"/logger_test.go:129 lgr.TestLoggerWithCallerDepth."+
+	assert.Equal(t, "2018/01/07 13:02:34.123 DEBUG ("+testDir+"/logger_test.go:130 lgr.TestLoggerWithCallerDepth."+
 		"func2) something 123 err\n", rout.String())
 }
 
@@ -367,7 +368,7 @@ func TestLoggerErrorWithDump(t *testing.T) {
 	assert.Equal(t, "2018/01/07 13:02:34.000 ERROR (lgr.TestLoggerErrorWithDump) oh my, error now! bad thing happened", lines[0])
 	assert.Equal(t, ">>> stack trace:", lines[1])
 	assert.Contains(t, lines[2], "github.com/go-pkgz/lgr.TestLoggerErrorWithDump(")
-	assert.Contains(t, lines[3], testDir+"/logger_test.go:365")
+	assert.Contains(t, lines[3], testDir+"/logger_test.go:366")
 }
 
 func TestLoggerWithErrorSameOutputs(t *testing.T) {
@@ -496,7 +497,6 @@ func TestLoggerNoSpaceLevel(t *testing.T) {
 		{"[WARN]something 123 %s", []any{"aaa1"}, "2018/01/07 13:02:34.000 WARN  something 123 aaa1\n", ""},
 		{"[ERROR]something 123 %s", []any{"aaa1"}, "2018/01/07 13:02:34.000 ERROR something 123 aaa1\n",
 			"2018/01/07 13:02:34.000 ERROR something 123 aaa1\n"},
-		// a bare level must be followed by whitespace, a colon or the end of the line
 		{"WARNsomething 123 %s", []any{"aaa1"}, "2018/01/07 13:02:34.000 INFO  WARNsomething 123 aaa1\n", ""},
 		{"ERRORsomething 123 %s", []any{"aaa1"}, "2018/01/07 13:02:34.000 INFO  ERRORsomething 123 aaa1\n", ""},
 	}
@@ -776,4 +776,77 @@ func TestLogger_TraceRegexDropsLoggerFrames(t *testing.T) {
 			assert.Equal(t, tt.want, parts[len(parts)-1])
 		})
 	}
+}
+
+func TestExtractLevelPrefixes(t *testing.T) {
+	tbl := []struct {
+		line, level, msg string
+		found            bool
+	}{
+		{"WARN disk almost full", "WARN", "disk almost full", true},
+		{"WARN: disk almost full", "WARN", ": disk almost full", true},
+		{"WARN\tdisk almost full", "WARN", "disk almost full", true},
+		{"WARN", "WARN", "", true},
+		{"[WARN]disk almost full", "WARN", "disk almost full", true},
+		{"WARNING: disk almost full", "INFO", "WARNING: disk almost full", false},
+		{"DEBUGGING started", "INFO", "DEBUGGING started", false},
+		{"TRACEROUTE done", "INFO", "TRACEROUTE done", false},
+		{"ERRORS: 3", "INFO", "ERRORS: 3", false},
+		{"FATALITY count is 3", "INFO", "FATALITY count is 3", false},
+		{"PANICKED users: 0", "INFO", "PANICKED users: 0", false},
+		{"no prefix", "INFO", "no prefix", false},
+	}
+	for _, tt := range tbl {
+		t.Run(tt.line, func(t *testing.T) {
+			level, msg, found := extractLevel(tt.line)
+			assert.Equal(t, tt.level, level)
+			assert.Equal(t, tt.msg, msg)
+			assert.Equal(t, tt.found, found)
+		})
+	}
+}
+
+func TestLoggerLevelNeedsBoundary(t *testing.T) {
+	fatalCalls := 0
+	rout, rerr := bytes.NewBuffer([]byte{}), bytes.NewBuffer([]byte{})
+	l := New(Out(rout), Err(rerr))
+	l.now = func() time.Time { return time.Date(2018, 1, 7, 13, 2, 34, 0, time.Local) }
+	l.fatal = func() { fatalCalls++ }
+
+	l.Logf("FATALITY count is 3")
+	l.Logf("PANICKED users: 0")
+	l.Logf("ERRORS: 3")
+	l.Logf("DEBUGGING started")
+	assert.Equal(t, "2018/01/07 13:02:34 INFO  FATALITY count is 3\n2018/01/07 13:02:34 INFO  PANICKED users: 0\n"+
+		"2018/01/07 13:02:34 INFO  ERRORS: 3\n2018/01/07 13:02:34 INFO  DEBUGGING started\n", rout.String())
+	assert.Empty(t, rerr.String())
+	assert.Equal(t, 0, fatalCalls)
+}
+
+func TestLoggerSlogHandlerLevel(t *testing.T) {
+	fatalCalls := 0
+	hout, rerr := bytes.NewBuffer([]byte{}), bytes.NewBuffer([]byte{})
+	l := New(Err(rerr), Debug, SlogHandler(slog.NewTextHandler(hout, nil)))
+	l.fatal = func() { fatalCalls++ }
+
+	l.Logf("DEBUG below the handler level")
+	l.Logf("INFO at the handler level")
+	assert.NotContains(t, hout.String(), "below the handler level")
+	assert.Contains(t, hout.String(), `level=INFO msg="at the handler level"`)
+
+	hout.Reset()
+	l = New(Err(rerr), SlogHandler(slog.NewTextHandler(hout, &slog.HandlerOptions{Level: slog.LevelError + 4})))
+	l.fatal = func() { fatalCalls++ }
+	l.Logf("FATAL not taken by the handler")
+	assert.Equal(t, 1, fatalCalls, "FATAL exits whether the handler takes the record or not")
+	l.Logf("PANIC not taken by the handler")
+	assert.Equal(t, 2, fatalCalls, "PANIC exits whether the handler takes the record or not")
+	assert.Contains(t, rerr.String(), "*** PANIC: not taken by the handler")
+	assert.Empty(t, hout.String())
+}
+
+// callerLine returns the line it is called from
+func callerLine() int {
+	_, _, line, _ := runtime.Caller(1)
+	return line
 }

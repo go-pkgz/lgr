@@ -92,7 +92,7 @@ Things to know:
 - The list of a logger and the package-level list are independent. A value present in both stays hidden until removed from both.
 - A line being logged at the moment of the change may still be written with the previous list.
 - Longer values are replaced first, so a secret containing another secret is hidden as a whole. Secrets that only partially overlap are replaced one after another, and a part of one of them may stay visible.
-- Secrets are hidden in the message passed to the logger. With `lgr.ToSlogHandler` wrapping a `*lgr.Logger`, attributes are part of that message, and string values are masked before they are quoted. `lgr.FromSlogHandler` adds no masking of its own, the output is masked only if the wrapped handler passes it to a masking logger. Attributes added by a slog handler set with `lgr.SlogHandler` are not processed.
+- Secrets are hidden in the message passed to the logger. With `lgr.ToSlogHandler` wrapping a `*lgr.Logger`, or a type that embeds one, attributes are part of that message, and string values are masked before they are quoted. `lgr.FromSlogHandler` adds no masking of its own, the output is masked only if the wrapped handler passes it to a masking logger. Attributes added by a slog handler set with `lgr.SlogHandler` are not processed.
 
 ### levels
 
@@ -179,7 +179,7 @@ logger.Logf("INFO message with %s", "structured data")
 // Output: {"time":"2023-09-15T10:34:56.789Z","level":"INFO","msg":"message with structured data"}
 ```
 
-Messages below the handler's level are dropped; with `nil` options, as above, `DEBUG` and `TRACE` are not written. `FATAL` and `PANIC` are passed to the handler as `ERROR` records, and then the program exits with status 1, as it does with `lgr.New`; `PANIC` writes the stacks of all goroutines to stderr first. Levels are parsed as described in "levels", and the message is trimmed of surrounding whitespace, including the newline the standard `log` package adds when it writes through `lgr.ToStdLogger`. As with `lgr.New`, `Logf` called without arguments uses the text as it is, so `%%` stays `%%`.
+Messages below the handler's level are dropped; with `nil` options, as above, `DEBUG` and `TRACE` are not written. `FATAL` and `PANIC` are passed to the handler as `ERROR` records, and then the program exits with status 1, as it does with `lgr.New`; a handler that does not accept `ERROR` drops the record, and the program exits without logging the message. `PANIC` writes a heading and the stacks of all goroutines to stderr first, leaving the message to the handler. Levels are parsed as described in "levels". The text after a level prefix is trimmed of surrounding whitespace, including the newline the standard `log` package adds when it writes through `lgr.ToStdLogger` with a level; a line without a level prefix is passed as it is. As with `lgr.New`, `Logf` called without arguments uses the text as it is, so `%%` stays `%%`.
 
 #### Using slog directly in lgr
 

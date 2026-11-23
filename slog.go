@@ -14,8 +14,8 @@ import (
 
 // ToSlogHandler converts lgr.L to slog.Handler. Attributes are written as key=value pairs after the message,
 // string values quoted, with group names joined to keys by dots as the slog text handler does.
-// For *Logger, secrets in string values are hidden before quoting, and the caller reported by
-// the Caller* options is the one in the slog record, so CallerDepth is not needed.
+// For *Logger and types embedding it, secrets in string values are hidden before quoting. For *Logger,
+// the caller reported by the Caller* options is the one in the slog record, so CallerDepth is not needed.
 func ToSlogHandler(l L) slog.Handler {
 	return &lgrSlogHandler{lgr: l}
 }
@@ -88,12 +88,12 @@ func (h *lgrSlogHandler) Handle(_ context.Context, record slog.Record) error {
 
 	// add pre-defined attributes
 	for _, a := range h.attrs {
-		writeAttr(&attrs, a.prefix, a.attr, hide)
+		h.writeAttr(&attrs, a.prefix, a.attr, hide)
 	}
 
 	// add record attributes
 	record.Attrs(func(attr slog.Attr) bool {
-		writeAttr(&attrs, h.prefix, attr, hide)
+		h.writeAttr(&attrs, h.prefix, attr, hide)
 		return true
 	})
 
@@ -210,7 +210,7 @@ func stringToLevel(level string) slog.Level {
 // writeAttr writes attr to b as a key=value pair followed by a space, with the group prefix added to the key.
 // Group values are written as one pair per member, their keys joined by dots, and empty groups are skipped.
 // String values are quoted, after hide has replaced the secrets in them.
-func writeAttr(b *strings.Builder, prefix string, attr slog.Attr, hide func(string) string) {
+func (h *lgrSlogHandler) writeAttr(b *strings.Builder, prefix string, attr slog.Attr, hide func(string) string) {
 	attr.Value = attr.Value.Resolve()
 	if attr.Equal(slog.Attr{}) {
 		return
@@ -222,7 +222,7 @@ func writeAttr(b *strings.Builder, prefix string, attr slog.Attr, hide func(stri
 			prefix += attr.Key + "."
 		}
 		for _, member := range attr.Value.Group() {
-			writeAttr(b, prefix, member, hide)
+			h.writeAttr(b, prefix, member, hide)
 		}
 	case slog.KindString:
 		b.WriteString(prefix + attr.Key + "=" + strconv.Quote(hide(attr.Value.String())) + " ")

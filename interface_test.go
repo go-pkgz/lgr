@@ -172,3 +172,31 @@ func TestAddSecretsWhilePrinting(t *testing.T) {
 	assert.NotContains(t, rout.String(), "kept")
 	assert.Equal(t, []string{"kept"}, secretStrings(sharedSecrets.list()))
 }
+
+func TestFatalfLevel(t *testing.T) {
+	var fatal int
+	rout, rerr := bytes.NewBuffer([]byte{}), bytes.NewBuffer([]byte{})
+	Setup(Out(rout), Err(rerr), CallerFile, CallerFunc)
+	def.now = func() time.Time { return time.Date(2018, 1, 7, 13, 2, 34, 0, time.Local) }
+	def.fatal = func() { fatal++ }
+	defer Setup()
+
+	line := callerLine()
+	Fatalf("no prefix %s", "here")
+	want := fmt.Sprintf("2018/01/07 13:02:34 FATAL {%s/interface_test.go:%d lgr.TestFatalfLevel} no prefix here\n", testDir, line+1)
+	assert.Equal(t, want, rout.String(), "a message without a level is FATAL, with the caller of Fatalf")
+	assert.Equal(t, want, rerr.String(), "FATAL is also written to the err writer")
+	assert.Equal(t, 1, fatal)
+
+	rout.Reset()
+	rerr.Reset()
+	Fatalf("INFO with a level")
+	assert.Contains(t, rout.String(), "INFO  {")
+	assert.Empty(t, rerr.String())
+	assert.Equal(t, 2, fatal)
+
+	rout.Reset()
+	Fatalf("FATAL with the fatal level")
+	assert.Contains(t, rout.String(), "FATAL {")
+	assert.Equal(t, 3, fatal, "exits once")
+}

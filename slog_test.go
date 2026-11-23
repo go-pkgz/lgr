@@ -446,7 +446,6 @@ func TestSlogWithOptions(t *testing.T) {
 		outStr := buff.String()
 		t.Logf("Output with caller: %s", outStr)
 
-		// should contain the file and function that called slog
 		assert.Regexp(t, `\{`+regexp.QuoteMeta(srcDir)+`/slog_test\.go:\d+ lgr_test\.TestSlogWithOptions\.func\d+\}`, outStr,
 			"Output should include caller file and function of the slog call")
 	})
@@ -790,7 +789,6 @@ func TestExtractLevel(t *testing.T) {
 		{"[TRACE] trace message", "TRACE", "trace message"},
 		{"[WARN]no space", "WARN", "no space"},
 		{"WARN: with colon", "WARN", ": with colon"},
-		// a bare level must be followed by whitespace, a colon or the end of the line
 		{"WARNING: disk almost full", "INFO", "WARNING: disk almost full"},
 		{"DEBUGGING started", "INFO", "DEBUGGING started"},
 		// no level
@@ -1065,7 +1063,7 @@ func TestAdaptorsKeepPercentInText(t *testing.T) {
 
 func TestFromSlogHandlerHonoursHandlerLevel(t *testing.T) {
 	buff := bytes.NewBuffer([]byte{})
-	logger := lgr.FromSlogHandler(slog.NewJSONHandler(buff, nil)) // handler at INFO
+	logger := lgr.FromSlogHandler(slog.NewJSONHandler(buff, nil))
 	logger.Logf("DEBUG below the handler level")
 	logger.Logf("TRACE below the handler level")
 	logger.Logf("INFO at the handler level")
@@ -1151,7 +1149,6 @@ func TestSlogHandlerGroupsMatchTextHandler(t *testing.T) {
 	})
 }
 
-// embeddedLogger is a user type wrapping *lgr.Logger
 type embeddedLogger struct{ *lgr.Logger }
 
 func TestSlogHandlerSecretsInEmbeddedLogger(t *testing.T) {

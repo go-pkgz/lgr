@@ -205,7 +205,7 @@ func (l *Logger) logf(pc uintptr, format string, args ...any) {
 	var ci callerInfo
 	if l.callerOn { // optimization to avoid expensive caller evaluation if caller info not in the template
 		if pc != 0 {
-			ci = callerFromPC(pc)
+			ci = l.callerFromPC(pc)
 		} else {
 			ci = l.reportCaller(l.callerDepth)
 		}
@@ -330,17 +330,17 @@ func (l *Logger) reportCaller(calldepth int) (res callerInfo) {
 
 	// add 5 to adjust stack level because it was called from 3 nested functions added by lgr, i.e. caller,
 	// reportCaller and logf, plus 2 frames by runtime
-	return newCallerInfo(caller(calldepth + 2 + 3))
+	return l.newCallerInfo(caller(calldepth + 2 + 3))
 }
 
 // callerFromPC reports the caller at the program counter pc, as slog.Record.PC holds it
-func callerFromPC(pc uintptr) callerInfo {
+func (l *Logger) callerFromPC(pc uintptr) callerInfo {
 	frame, _ := runtime.CallersFrames([]uintptr{pc}).Next()
-	return newCallerInfo(frame.File, frame.Line, frame.Function)
+	return l.newCallerInfo(frame.File, frame.Line, frame.Function)
 }
 
 // newCallerInfo makes callerInfo from the file path, line and full function name of a stack frame
-func newCallerInfo(filePath string, line int, funcName string) (res callerInfo) {
+func (l *Logger) newCallerInfo(filePath string, line int, funcName string) (res callerInfo) {
 	if (filePath == "") || (line <= 0) || (funcName == "") {
 		return callerInfo{}
 	}
