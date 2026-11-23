@@ -146,17 +146,19 @@ func New(options ...Option) *Logger {
 // FATAL and PANIC adds runtime stack and os.exit(1), like panic.
 func (l *Logger) Logf(format string, args ...interface{}) {
 	// to align call depth between (*Logger).Logf() and, for example, Printf()
-	l.logf(format, args...)
+	l.logf(0, format, args...)
 }
 
+// logf writes the message. A non-zero pc is the caller to report, as a slog record carries it,
+// otherwise the caller is found on the stack, callerDepth frames above the exported caller of logf.
 // nolint gocyclo
-func (l *Logger) logf(format string, args ...interface{}) {
+func (l *Logger) logf(pc uintptr, format string, args ...any) {
 
 	var lv, msg string
 	if len(args) == 0 {
-		lv, msg = l.extractLevel(format)
+		lv, msg, _ = extractLevel(format)
 	} else {
-		lv, msg = l.extractLevel(fmt.Sprintf(format, args...))
+		lv, msg, _ = extractLevel(fmt.Sprintf(format, args...))
 	}
 
 	if lv == "DEBUG" && !l.dbg {
@@ -176,13 +178,19 @@ func (l *Logger) logf(format string, args ...interface{}) {
 
 	// if slog handler is set, use it
 	if l.slogHandler != nil {
-		// get the caller's PC so slog handlers can resolve source info when AddSource is enabled
-		var pcs [1]uintptr
-		runtime.Callers(3+l.callerDepth, pcs[:]) // skip runtime.Callers, logf, Logf (+ any extra depth)
-		record := slog.NewRecord(l.now(), stringToLevel(lv), msg, pcs[0])
-		_ = l.slogHandler.Handle(context.Background(), record)
+		level := stringToLevel(lv)
+		if l.slogHandler.Enabled(context.Background(), level) {
+			if pc == 0 {
+				// get the caller's PC so slog handlers can resolve source info when AddSource is enabled
+				var pcs [1]uintptr
+				runtime.Callers(3+l.callerDepth, pcs[:]) // skip runtime.Callers, logf, Logf (+ any extra depth)
+				pc = pcs[0]
+			}
+			record := slog.NewRecord(l.now(), level, msg, pc)
+			_ = l.slogHandler.Handle(context.Background(), record)
+		}
 
-		// handle FATAL and PANIC levels as they have special behavior
+		// handle FATAL and PANIC levels as they have special behavior, whether the handler took the record or not
 		if lv == "FATAL" || lv == "PANIC" {
 			if lv == "PANIC" {
 				// print panic stack trace
@@ -196,7 +204,11 @@ func (l *Logger) logf(format string, args ...interface{}) {
 
 	var ci callerInfo
 	if l.callerOn { // optimization to avoid expensive caller evaluation if caller info not in the template
-		ci = l.reportCaller(l.callerDepth)
+		if pc != 0 {
+			ci = callerFromPC(pc)
+		} else {
+			ci = l.reportCaller(l.callerDepth)
+		}
 	}
 
 	elems := layout{
@@ -318,7 +330,17 @@ func (l *Logger) reportCaller(calldepth int) (res callerInfo) {
 
 	// add 5 to adjust stack level because it was called from 3 nested functions added by lgr, i.e. caller,
 	// reportCaller and logf, plus 2 frames by runtime
-	filePath, line, funcName := caller(calldepth + 2 + 3)
+	return newCallerInfo(caller(calldepth + 2 + 3))
+}
+
+// callerFromPC reports the caller at the program counter pc, as slog.Record.PC holds it
+func callerFromPC(pc uintptr) callerInfo {
+	frame, _ := runtime.CallersFrames([]uintptr{pc}).Next()
+	return newCallerInfo(frame.File, frame.Line, frame.Function)
+}
+
+// newCallerInfo makes callerInfo from the file path, line and full function name of a stack frame
+func newCallerInfo(filePath string, line int, funcName string) (res callerInfo) {
 	if (filePath == "") || (line <= 0) || (funcName == "") {
 		return callerInfo{}
 	}
@@ -407,17 +429,20 @@ func (l *Logger) formatLevel(lv string) string {
 	return lv + spaces
 }
 
-// extractLevel parses messages with optional level prefix and returns level and the message with stripped level
-func (l *Logger) extractLevel(line string) (level, msg string) {
+// extractLevel parses a message with an optional level prefix and returns the level and the message without it.
+// A bare level counts only when followed by whitespace (space, tab, CR or LF), a colon or the end of the line,
+// so "WARNING" is not WARN; a bracketed level may be followed by anything. A line without a recognized prefix is INFO,
+// with found false.
+func extractLevel(line string) (level, msg string, found bool) {
 	for _, lv := range levels {
-		if strings.HasPrefix(line, lv) {
-			return lv, strings.TrimSpace(line[len(lv):])
+		if rest, ok := strings.CutPrefix(line, "["+lv+"]"); ok {
+			return lv, strings.TrimSpace(rest), true
 		}
-		if strings.HasPrefix(line, "["+lv+"]") {
-			return lv, strings.TrimSpace(line[len("["+lv+"]"):])
+		if rest, ok := strings.CutPrefix(line, lv); ok && (rest == "" || strings.IndexByte(" \t\r\n:", rest[0]) >= 0) {
+			return lv, strings.TrimSpace(rest), true
 		}
 	}
-	return "INFO", line
+	return "INFO", line, false
 }
 
 func (l *Logger) levelMapper(level string) mapFunc {

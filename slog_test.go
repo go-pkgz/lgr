@@ -8,6 +8,7 @@ import (
 	"io"
 	"log/slog"
 	"os"
+	"os/exec"
 	"path"
 	"regexp"
 	"runtime"
@@ -445,9 +446,9 @@ func TestSlogWithOptions(t *testing.T) {
 		outStr := buff.String()
 		t.Logf("Output with caller: %s", outStr)
 
-		// should contain caller file and function from slog handler
-		assert.Regexp(t, `\{`+regexp.QuoteMeta(srcDir)+`/slog\.go:\d+ lgr\.\(\*lgrSlogHandler\)\.Handle\}`, outStr,
-			"Output should include caller file and function from handler")
+		// should contain the file and function that called slog
+		assert.Regexp(t, `\{`+regexp.QuoteMeta(srcDir)+`/slog_test\.go:\d+ lgr_test\.TestSlogWithOptions\.func\d+\}`, outStr,
+			"Output should include caller file and function of the slog call")
 	})
 
 	t.Run("format template", func(t *testing.T) {
@@ -481,7 +482,8 @@ func TestSlogWithOptions(t *testing.T) {
 		// 2. Caller info from lgr handler
 		assert.Regexp(t, `\d{4}/\d{2}/\d{2} \d{2}:\d{2}:\d{2}\.\d{3}`, outStr, "Should have timestamp with milliseconds")
 		assert.Contains(t, outStr, "message with complex options", "Should contain the message")
-		assert.Regexp(t, `\(`+regexp.QuoteMeta(srcDir)+`/slog\.go:\d+ lgr\.\(\*lgrSlogHandler\)\.Handle\)`, outStr, "Should include caller info from the handler")
+		assert.Regexp(t, `\(`+regexp.QuoteMeta(srcDir)+`/slog_test\.go:\d+ lgr_test\.TestSlogWithOptions\.func\d+\)`, outStr,
+			"Should include caller info of the slog call")
 	})
 
 	t.Run("mapper functions", func(t *testing.T) {
@@ -725,16 +727,15 @@ func TestStringToLevel(t *testing.T) {
 		{"INFO", slog.LevelInfo},
 		{"WARN", slog.LevelWarn},
 		{"ERROR", slog.LevelError},
-		{"PANIC", slog.LevelError},
-		{"FATAL", slog.LevelError},
 		{"UNKNOWN", slog.LevelInfo}, // unknown levels default to INFO
+		// PANIC and FATAL exit the program, TestFromSlogHandlerFatalAndPanic checks they are ERROR records
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.level, func(t *testing.T) {
 			// we'll need to call stringToLevel through a handler since it's not exported
 			buff := bytes.NewBuffer([]byte{})
-			logger := lgr.FromSlogHandler(slog.NewTextHandler(buff, nil))
+			logger := lgr.FromSlogHandler(slog.NewTextHandler(buff, &slog.HandlerOptions{Level: slog.LevelDebug - 4}))
 
 			// log with the level
 			logger.Logf(tt.level + " test message")
@@ -780,17 +781,18 @@ func TestExtractLevel(t *testing.T) {
 		{"INFO info message", "INFO", "info message"},
 		{"WARN warn message", "WARN", "warn message"},
 		{"ERROR error message", "ERROR", "error message"},
-		{"FATAL fatal message", "FATAL", "fatal message"},
-		{"PANIC panic message", "PANIC", "panic message"},
 		{"TRACE trace message", "TRACE", "trace message"},
 		// bracketed prefixes
 		{"[DEBUG] debug message", "DEBUG", "debug message"},
 		{"[INFO] info message", "INFO", "info message"},
 		{"[WARN] warn message", "WARN", "warn message"},
 		{"[ERROR] error message", "ERROR", "error message"},
-		{"[FATAL] fatal message", "FATAL", "fatal message"},
-		{"[PANIC] panic message", "PANIC", "panic message"},
 		{"[TRACE] trace message", "TRACE", "trace message"},
+		{"[WARN]no space", "WARN", "no space"},
+		{"WARN: with colon", "WARN", ": with colon"},
+		// a bare level must be followed by whitespace, a colon or the end of the line
+		{"WARNING: disk almost full", "INFO", "WARNING: disk almost full"},
+		{"DEBUGGING started", "INFO", "DEBUGGING started"},
 		// no level
 		{"no level prefix", "INFO", "no level prefix"},
 		// unknown level
@@ -799,7 +801,7 @@ func TestExtractLevel(t *testing.T) {
 
 	// create logger and handler for testing
 	buff := bytes.NewBuffer([]byte{})
-	logger := lgr.FromSlogHandler(slog.NewTextHandler(buff, nil))
+	logger := lgr.FromSlogHandler(slog.NewTextHandler(buff, &slog.HandlerOptions{Level: slog.LevelDebug - 4}))
 
 	for _, tt := range tests {
 		t.Run(tt.msg, func(t *testing.T) {
@@ -1059,4 +1061,92 @@ func TestAdaptorsKeepPercentInText(t *testing.T) {
 	buff := bytes.NewBuffer([]byte{})
 	lgr.FromSlogHandler(slog.NewTextHandler(buff, nil)).Logf("INFO 100% done")
 	assert.Contains(t, buff.String(), `msg="100% done"`)
+}
+
+func TestFromSlogHandlerHonoursHandlerLevel(t *testing.T) {
+	buff := bytes.NewBuffer([]byte{})
+	logger := lgr.FromSlogHandler(slog.NewJSONHandler(buff, nil)) // handler at INFO
+	logger.Logf("DEBUG below the handler level")
+	logger.Logf("TRACE below the handler level")
+	logger.Logf("INFO at the handler level")
+	assert.NotContains(t, buff.String(), "below the handler level")
+	assert.Contains(t, buff.String(), `"msg":"at the handler level"`)
+}
+
+func TestFromSlogHandlerFatalExits(t *testing.T) {
+	if os.Getenv("LGR_TEST_FROMSLOG_FATAL") != "" {
+		lgr.FromSlogHandler(slog.NewTextHandler(os.Stdout, nil)).Logf("FATAL fromslog fatal")
+		fmt.Println("still running after FATAL")
+		return
+	}
+	cmd := exec.Command(os.Args[0], "-test.run=^TestFromSlogHandlerFatalExits$") //nolint:gosec // runs this test binary
+	cmd.Env = append(os.Environ(), "LGR_TEST_FROMSLOG_FATAL=1")
+	out, err := cmd.Output()
+	var exitErr *exec.ExitError
+	require.ErrorAs(t, err, &exitErr, "output: %s", out)
+	assert.Equal(t, 1, exitErr.ExitCode())
+	assert.Contains(t, string(out), `level=ERROR msg="fromslog fatal"`)
+	assert.NotContains(t, string(out), "still running after FATAL")
+}
+
+func TestSetupWithSlogTrace(t *testing.T) {
+	defer lgr.Setup()
+	buff := bytes.NewBuffer([]byte{})
+	lgr.SetupWithSlog(slog.New(slog.NewTextHandler(buff, &slog.HandlerOptions{Level: slog.LevelDebug - 4})))
+	lgr.Printf("TRACE trace through slog")
+	lgr.Printf("DEBUG debug through slog")
+	assert.Contains(t, buff.String(), `level=DEBUG-4 msg="trace through slog"`)
+	assert.Contains(t, buff.String(), `level=DEBUG msg="debug through slog"`)
+}
+
+func TestToSlogHandlerReportsCaller(t *testing.T) {
+	for _, depth := range []int{0, 3} {
+		buff := bytes.NewBuffer([]byte{})
+		slogger := slog.New(lgr.ToSlogHandler(lgr.New(lgr.Out(buff), lgr.CallerFile, lgr.CallerFunc, lgr.CallerDepth(depth))))
+		_, _, line, _ := runtime.Caller(0)
+		slogger.Info("from slog")
+		assert.Contains(t, buff.String(), fmt.Sprintf("{%s/slog_test.go:%d lgr_test.TestToSlogHandlerReportsCaller}", srcDir, line+1),
+			"CallerDepth(%d)", depth)
+	}
+
+	buff := bytes.NewBuffer([]byte{})
+	h := slog.NewJSONHandler(buff, &slog.HandlerOptions{AddSource: true})
+	slogger := slog.New(lgr.ToSlogHandler(lgr.New(lgr.SlogHandler(h))))
+	_, _, line, _ := runtime.Caller(0)
+	slogger.Info("from slog")
+	assert.Contains(t, buff.String(), fmt.Sprintf(`/slog_test.go","line":%d}`, line+1))
+}
+
+func TestSlogHandlerGroupsMatchTextHandler(t *testing.T) {
+	tbl := []struct {
+		name string
+		log  func(l *slog.Logger)
+		want string
+	}{
+		{"attrs before a group keep their keys", func(l *slog.Logger) {
+			l.With("before", 1).WithGroup("g").With("after", 2).Info("grp", "rec", 3)
+		}, "before=1 g.after=2 g.rec=3"},
+		{"group value", func(l *slog.Logger) {
+			l.Info("grp", slog.Group("req", "id", 7, "size", 8))
+		}, "req.id=7 req.size=8"},
+		{"nested, inline and empty groups", func(l *slog.Logger) {
+			l.WithGroup("g").Info("grp", slog.Group("a", slog.Group("b", "k", 1)), slog.Group("", "inline", 2), slog.Group("empty"))
+		}, "g.a.b.k=1 g.inline=2"},
+	}
+	for _, tt := range tbl {
+		t.Run(tt.name, func(t *testing.T) {
+			lgrOut, textOut := bytes.NewBuffer([]byte{}), bytes.NewBuffer([]byte{})
+			tt.log(slog.New(lgr.ToSlogHandler(lgr.New(lgr.Out(lgrOut)))))
+			tt.log(slog.New(slog.NewTextHandler(textOut, nil)))
+			assert.Contains(t, lgrOut.String(), "INFO  grp "+tt.want+"\n")
+			assert.Contains(t, textOut.String(), `msg=grp `+tt.want+"\n", "the slog text handler writes the same pairs")
+		})
+	}
+
+	t.Run("string values in a group are quoted after secrets are hidden", func(t *testing.T) {
+		buff := bytes.NewBuffer([]byte{})
+		slogger := slog.New(lgr.ToSlogHandler(lgr.New(lgr.Out(buff), lgr.Secret("s3cr\"et"))))
+		slogger.Info("grp", slog.Group("req", "path", "/x", "tok", "s3cr\"et"))
+		assert.Contains(t, buff.String(), `INFO  grp req.path="/x" req.tok="******"`+"\n")
+	})
 }

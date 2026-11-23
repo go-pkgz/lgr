@@ -490,12 +490,15 @@ func TestLoggerNoSpaceLevel(t *testing.T) {
 		args       []interface{}
 		rout, rerr string
 	}{
-		{"INFOsomething 123 %s", []interface{}{"aaa1"}, "2018/01/07 13:02:34.000 INFO  something 123 aaa1\n", ""},
+		{"INFOsomething 123 %s", []any{"aaa1"}, "2018/01/07 13:02:34.000 INFO  INFOsomething 123 aaa1\n", ""},
 		{"[INFO]something 123 %s", []interface{}{"aaa1"}, "2018/01/07 13:02:34.000 INFO  something 123 aaa1\n", ""},
 		{"[INFO]something 123 %s", []interface{}{"aaa1\n"}, "2018/01/07 13:02:34.000 INFO  something 123 aaa1\n", ""},
-		{"WARNsomething 123 %s", []interface{}{"aaa1"}, "2018/01/07 13:02:34.000 WARN  something 123 aaa1\n", ""},
-		{"ERRORsomething 123 %s", []interface{}{"aaa1"}, "2018/01/07 13:02:34.000 ERROR something 123 aaa1\n",
+		{"[WARN]something 123 %s", []any{"aaa1"}, "2018/01/07 13:02:34.000 WARN  something 123 aaa1\n", ""},
+		{"[ERROR]something 123 %s", []any{"aaa1"}, "2018/01/07 13:02:34.000 ERROR something 123 aaa1\n",
 			"2018/01/07 13:02:34.000 ERROR something 123 aaa1\n"},
+		// a bare level must be followed by whitespace, a colon or the end of the line
+		{"WARNsomething 123 %s", []any{"aaa1"}, "2018/01/07 13:02:34.000 INFO  WARNsomething 123 aaa1\n", ""},
+		{"ERRORsomething 123 %s", []any{"aaa1"}, "2018/01/07 13:02:34.000 INFO  ERRORsomething 123 aaa1\n", ""},
 	}
 	rout, rerr := bytes.NewBuffer([]byte{}), bytes.NewBuffer([]byte{})
 	l := New(Out(rout), Err(rerr), Msec)

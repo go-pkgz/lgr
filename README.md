@@ -96,7 +96,7 @@ Things to know:
 
 ### levels
 
-`lgr.Logf` recognize prefixes like `INFO` or `[INFO]` as levels. The full list of supported levels - `TRACE`, `DEBUG`, `INFO`, `WARN`, `ERROR`, `PANIC` and `FATAL`.
+`Logf` recognizes prefixes like `INFO` or `[INFO]` as levels. A bare level counts only when followed by whitespace (space, tab, CR or LF), a colon or the end of the line, so `WARNING: disk full` is not `WARN`; a bracketed level may be followed by anything. A line without a recognized prefix is `INFO`. The full list of supported levels - `TRACE`, `DEBUG`, `INFO`, `WARN`, `ERROR`, `PANIC` and `FATAL`.
 
 - `TRACE` will be filtered unless `lgr.Trace` option defined
 - `DEBUG` will be filtered unless `lgr.Debug` or `lgr.Trace` options defined
@@ -133,13 +133,13 @@ example with [fatih/color](https://github.com/fatih/color):
 
 - `lgr.ToWriter(l lgr.L, level string) io.Writer` - makes io.Writer forwarding write ops to underlying `lgr.L`
 - `lgr.ToStdLogger(l lgr.L, level string) *log.Logger` - makes standard logger on top of `lgr.L`
-- `lgr.ToSlogHandler(l lgr.L) slog.Handler` - converts lgr.L to a slog.Handler for use with slog
+- `lgr.ToSlogHandler(l lgr.L) slog.Handler` - converts lgr.L to a slog.Handler for use with slog. Attributes are written as `key=value` pairs after the message, with group names joined to the keys by dots, as the slog text handler does. When `l` is a `*lgr.Logger`, the `Caller*` options report the code that called the slog method.
 
 _`level` parameter is optional, if defined (non-empty) will enforce the level._
 
 - `lgr.SetupStdLogger(opts ...Option)` initializes std global logger (`log.std`) with lgr logger and given options. 
-All standard methods like `log.Print`, `log.Println`, `log.Fatal` and so on will be forwarder to lgr.
-- `lgr.SetupWithSlog(logger *slog.Logger)` sets up the global logger with a slog logger.
+All standard methods like `log.Print`, `log.Println`, `log.Fatal` and so on will be forwarded to lgr. Their lines are leveled by prefix like any other, so `log.Fatalf("no prefix")` is logged at `INFO` before the program exits.
+- `lgr.SetupWithSlog(logger *slog.Logger)` sets up the global logger with a slog logger. It turns on `lgr.Debug` or `lgr.Trace` when the handler accepts `slog.LevelDebug` or `slog.LevelDebug-4`.
 
 ### slog integration
 
@@ -174,6 +174,8 @@ logger.Logf("INFO message with %s", "structured data")
 // Output: {"time":"2023-09-15T10:34:56.789Z","level":"INFO","msg":"message with structured data"}
 ```
 
+Messages below the handler's level are dropped; with `nil` options, as above, `DEBUG` and `TRACE` are not written. `FATAL` and `PANIC` are passed to the handler as `ERROR` records, and then the program exits with status 1, as it does with `lgr.New`; `PANIC` writes the stacks of all goroutines to stderr first. Levels are parsed as described in "levels", and the message is trimmed of surrounding whitespace, including the newline the standard `log` package adds when it writes through `lgr.ToStdLogger`. As with `lgr.New`, `Logf` called without arguments uses the text as it is, so `%%` stays `%%`.
+
 #### Using slog directly in lgr
 
 ```go
@@ -185,6 +187,8 @@ logger := lgr.New(lgr.SlogHandler(jsonHandler))
 logger.Logf("INFO message")
 // Output: {"time":"2023-09-15T10:34:56.789Z","level":"INFO","msg":"message"}
 ```
+
+lgr's own level filter runs before the handler: pass `lgr.Debug` or `lgr.Trace` to `lgr.New` as well to let `DEBUG` or `TRACE` messages reach it. Then the handler drops the messages below its own level.
 
 #### JSON output with caller information
 
