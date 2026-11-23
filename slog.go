@@ -6,6 +6,7 @@ import (
 	"io"
 	"log/slog"
 	"os"
+	"reflect"
 	"runtime"
 	"strconv"
 	"strings"
@@ -77,9 +78,10 @@ func (h *lgrSlogHandler) Handle(_ context.Context, record slog.Record) error {
 	msg := record.Message
 
 	// string values are quoted, so secrets are hidden before quoting changes how they are spelled.
-	// the interface also matches types that embed *Logger
+	// the interface also matches types that embed *Logger; a nil pointer to such a type may still
+	// log through its own Logf, while the promoted hideSecrets would dereference it
 	hide := func(s string) string { return s }
-	if hl, ok := h.lgr.(interface{ hideSecrets(string) string }); ok {
+	if hl, ok := h.lgr.(interface{ hideSecrets(string) string }); ok && !isNilPointer(h.lgr) {
 		hide = hl.hideSecrets
 	}
 
@@ -171,6 +173,12 @@ func (a *slogLgrAdapter) Logf(format string, args ...interface{}) {
 }
 
 // Helper functions
+
+// isNilPointer reports whether v holds a nil pointer
+func isNilPointer(v any) bool {
+	rv := reflect.ValueOf(v)
+	return rv.Kind() == reflect.Pointer && rv.IsNil()
+}
 
 // levelToString converts slog.Level to string representation used by lgr
 func levelToString(level slog.Level) string {

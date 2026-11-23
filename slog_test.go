@@ -1168,6 +1168,17 @@ func (n nilSafeLogger) Logf(format string, args ...any) {
 	}
 }
 
+// nilSafePtrLogger is the same with a pointer receiver, so a nil *nilSafePtrLogger is a valid lgr.L
+type nilSafePtrLogger struct{ *lgr.Logger }
+
+func (n *nilSafePtrLogger) Logf(format string, args ...any) {
+	if n != nil && n.Logger != nil {
+		n.Logger.Logf(format, args...)
+	}
+}
+
 func TestSlogHandlerNilEmbeddedLogger(t *testing.T) {
-	assert.NotPanics(t, func() { slog.New(lgr.ToSlogHandler(nilSafeLogger{})).Info("msg", "key", "value") })
+	assert.NotPanics(t, func() { slog.New(lgr.ToSlogHandler(nilSafeLogger{})).Info("msg", "key", "value") }, "nil embedded *Logger")
+	var nilPtr *nilSafePtrLogger
+	assert.NotPanics(t, func() { slog.New(lgr.ToSlogHandler(nilPtr)).Info("msg", "key", "value") }, "nil pointer to the wrapper")
 }
