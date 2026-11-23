@@ -262,6 +262,15 @@ func (l *Logger) logf(format string, args ...interface{}) {
 	l.lock.Unlock()
 }
 
+// hideSecrets replaces this logger's secrets and the package-level ones it hides in s
+func (l *Logger) hideSecrets(s string) string {
+	own, shared := l.secrets.list(), l.shared.list()
+	if len(own)+len(shared) == 0 {
+		return s
+	}
+	return string(own.hide([]byte(s), shared))
+}
+
 // AddSecrets adds values to hide in this logger's output. Safe to call while other goroutines log.
 // Empty and whitespace-only values are ignored.
 func (l *Logger) AddSecrets(vals ...string) {

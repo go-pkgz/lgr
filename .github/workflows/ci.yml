@@ -38,6 +38,9 @@ jobs:
           GO111MODULE: "on"
           TZ: "America/Chicago"
 
+      - name: build examples
+        run: cd _example && go build ./...
+
       - name: golangci-lint
         uses: golangci/golangci-lint-action@v7
         with:

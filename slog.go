@@ -6,6 +6,8 @@ import (
 	"log/slog"
 	"os"
 	"runtime"
+	"slices"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -65,20 +67,27 @@ func (h *lgrSlogHandler) Handle(_ context.Context, record slog.Record) error {
 		attrs.WriteString(" ")
 	}
 
+	// string values are quoted, so secrets are hidden before quoting changes how they are spelled
+	hide := func(s string) string { return s }
+	if l, ok := h.lgr.(*Logger); ok {
+		hide = l.hideSecrets
+	}
+
 	// add pre-defined attributes
 	for _, attr := range h.attrs {
-		attrs.WriteString(formatAttr(attr, h.groups))
+		attrs.WriteString(formatAttr(attr, h.groups, hide))
 	}
 
 	// add record attributes
 	record.Attrs(func(attr slog.Attr) bool {
-		attrs.WriteString(formatAttr(attr, h.groups))
+		attrs.WriteString(formatAttr(attr, h.groups, hide))
 		return true
 	})
 
-	// combine level prefix and message; lgr.Logf adds its own timestamp and level formatting
+	// combine level prefix and message; lgr.Logf adds its own timestamp and level formatting.
+	// the text is passed as an argument, so a % in it is not taken for a formatting verb
 	logMsg := fmt.Sprintf("%s %s%s", level, msg, attrs.String())
-	h.lgr.Logf(logMsg)
+	h.lgr.Logf("%s", logMsg)
 	return nil
 }
 
@@ -86,7 +95,7 @@ func (h *lgrSlogHandler) Handle(_ context.Context, record slog.Record) error {
 func (h *lgrSlogHandler) WithAttrs(attrs []slog.Attr) slog.Handler {
 	newHandler := &lgrSlogHandler{
 		lgr:    h.lgr,
-		attrs:  append(h.attrs, attrs...),
+		attrs:  append(slices.Clip(h.attrs), attrs...), // clipped, so siblings never share the backing array
 		groups: h.groups,
 	}
 	return newHandler
@@ -97,7 +106,7 @@ func (h *lgrSlogHandler) WithGroup(name string) slog.Handler {
 	newHandler := &lgrSlogHandler{
 		lgr:    h.lgr,
 		attrs:  h.attrs,
-		groups: append(h.groups, name),
+		groups: append(slices.Clip(h.groups), name), // clipped, so siblings never share the backing array
 	}
 	return newHandler
 }
@@ -109,7 +118,10 @@ type slogLgrAdapter struct {
 
 // Logf implements lgr.L interface
 func (a *slogLgrAdapter) Logf(format string, args ...interface{}) {
-	msg := fmt.Sprintf(format, args...)
+	msg := format
+	if len(args) > 0 {
+		msg = fmt.Sprintf(format, args...)
+	}
 	level, msg := extractLevel(msg)
 
 	// get the caller's PC so slog handlers can resolve source info when AddSource is enabled
@@ -176,8 +188,8 @@ func extractLevel(msg string) (level, message string) {
 	return "INFO", msg
 }
 
-// formatAttr converts slog.Attr to string representation
-func formatAttr(attr slog.Attr, groups []string) string {
+// formatAttr converts slog.Attr to string representation, hiding secrets in string values before quoting them
+func formatAttr(attr slog.Attr, groups []string, hide func(string) string) string {
 	if attr.Equal(slog.Attr{}) {
 		return ""
 	}
@@ -191,7 +203,7 @@ func formatAttr(attr slog.Attr, groups []string) string {
 
 	// handle string values specially by quoting them
 	if attr.Value.Kind() == slog.KindString {
-		val = fmt.Sprintf("%q", attr.Value.String())
+		val = strconv.Quote(hide(attr.Value.String()))
 	}
 
 	return fmt.Sprintf("%s=%s ", key, val)

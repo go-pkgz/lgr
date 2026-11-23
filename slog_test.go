@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"io"
 	"log/slog"
 	"os"
@@ -983,4 +984,79 @@ func TestDirect_SlogHandlerAddSecrets(t *testing.T) {
 	logger.Logf("INFO auth with token1")
 	assert.Contains(t, buff.String(), "auth with ******")
 	assert.NotContains(t, buff.String(), "token1")
+}
+
+func TestSlogHandlerSiblingsKeepOwnAttrs(t *testing.T) {
+	t.Run("attrs", func(t *testing.T) {
+		buff := bytes.NewBuffer([]byte{})
+		base := slog.New(lgr.ToSlogHandler(lgr.New(lgr.Out(buff))))
+		parent := base.With("a", 1, "b", 2).With("c", 3) // leaves spare capacity in the attrs slice
+		child1 := parent.With("req", "one")
+		child2 := parent.With("req", "two")
+
+		child1.Info("from child1")
+		child2.Info("from child2")
+		lines := strings.Split(strings.TrimSpace(buff.String()), "\n")
+		require.Len(t, lines, 2)
+		assert.Contains(t, lines[0], `from child1 a=1 b=2 c=3 req="one"`)
+		assert.Contains(t, lines[1], `from child2 a=1 b=2 c=3 req="two"`)
+	})
+
+	t.Run("groups", func(t *testing.T) {
+		buff := bytes.NewBuffer([]byte{})
+		base := slog.New(lgr.ToSlogHandler(lgr.New(lgr.Out(buff))))
+		parent := base.WithGroup("g1").WithGroup("g2").WithGroup("g3") // leaves spare capacity in the groups slice
+		child1 := parent.WithGroup("one")
+		child2 := parent.WithGroup("two")
+
+		child1.Info("from child1", "k", 1)
+		child2.Info("from child2", "k", 2)
+		lines := strings.Split(strings.TrimSpace(buff.String()), "\n")
+		require.Len(t, lines, 2)
+		assert.Contains(t, lines[0], "from child1 g1.g2.g3.one.k=1")
+		assert.Contains(t, lines[1], "from child2 g1.g2.g3.two.k=2")
+	})
+}
+
+func TestSlogHandlerSecretsInQuotedAttrs(t *testing.T) {
+	t.Run("logger secrets", func(t *testing.T) {
+		buff := bytes.NewBuffer([]byte{})
+		logger := lgr.New(lgr.Out(buff), lgr.Secret("s3cr\"et", "line1\nline2", "back\\slash", "abcd"))
+		slog.New(lgr.ToSlogHandler(logger)).Info("msg", "a", "s3cr\"et", "b", "line1\nline2", "c", "back\\slash", "d", "abcd")
+		assert.Contains(t, buff.String(), `msg a="******" b="******" c="******" d="******"`)
+		assert.NotContains(t, buff.String(), "s3cr")
+		assert.NotContains(t, buff.String(), "line1")
+		assert.NotContains(t, buff.String(), "back")
+	})
+
+	t.Run("package-level secrets", func(t *testing.T) {
+		buff := bytes.NewBuffer([]byte{})
+		lgr.Setup(lgr.Out(buff))
+		lgr.AddSecrets("tok\"en")
+		defer func() {
+			lgr.RemoveSecrets("tok\"en")
+			lgr.Setup()
+		}()
+		slog.New(lgr.ToSlogHandler(lgr.Default())).With("k", "tok\"en").Info("msg")
+		assert.Contains(t, buff.String(), `msg k="******"`)
+		assert.NotContains(t, buff.String(), "tok")
+	})
+}
+
+func TestAdaptorsKeepPercentInText(t *testing.T) {
+	var got []string
+	capture := lgr.Func(func(format string, args ...any) { got = append(got, fmt.Sprintf(format, args...)) })
+
+	slog.New(lgr.ToSlogHandler(capture)).Info("100% done", "k", "50%d")
+	_, err := lgr.ToWriter(capture, "WARN").Write([]byte("75% up"))
+	require.NoError(t, err)
+	lgr.ToStdLogger(capture, "WARN").Printf("rate %s", "75% up")
+	require.Len(t, got, 3)
+	assert.Equal(t, `INFO 100% done k="50%d" `, got[0])
+	assert.Equal(t, "WARN 75% up", got[1])
+	assert.Equal(t, "WARN rate 75% up\n", got[2])
+
+	buff := bytes.NewBuffer([]byte{})
+	lgr.FromSlogHandler(slog.NewTextHandler(buff, nil)).Logf("INFO 100% done")
+	assert.Contains(t, buff.String(), `msg="100% done"`)
 }
