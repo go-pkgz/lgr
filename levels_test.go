@@ -94,10 +94,12 @@ func TestFromSlogHandlerFatalAndPanic(t *testing.T) {
 	assert.Empty(t, rerr.String())
 
 	hout.Reset()
-	a.Logf("[PANIC] fromslog %s", "panic")
+	a.handler = ToSlogHandler(New(Out(hout), Secret("tok123")))
+	a.Logf("[PANIC] failed with %s", "tok123")
 	assert.Equal(t, 2, fatalCalls)
-	assert.Contains(t, hout.String(), `level=ERROR msg="fromslog panic"`)
-	assert.True(t, strings.HasPrefix(rerr.String(), "\n*** PANIC: fromslog panic\n\ngoroutine "), rerr.String())
+	assert.Contains(t, hout.String(), "ERROR failed with ******\n", "the handler gets the message and masks it")
+	assert.True(t, strings.HasPrefix(rerr.String(), "\n*** PANIC\n\ngoroutine "), rerr.String())
+	assert.NotContains(t, rerr.String(), "tok123", "stderr gets the heading and the dump, not the message")
 
 	hout.Reset()
 	a.handler = slog.NewTextHandler(hout, &slog.HandlerOptions{Level: slog.LevelError + 4})

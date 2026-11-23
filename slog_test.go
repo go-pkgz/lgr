@@ -1150,3 +1150,14 @@ func TestSlogHandlerGroupsMatchTextHandler(t *testing.T) {
 		assert.Contains(t, buff.String(), `INFO  grp req.path="/x" req.tok="******"`+"\n")
 	})
 }
+
+// embeddedLogger is a user type wrapping *lgr.Logger
+type embeddedLogger struct{ *lgr.Logger }
+
+func TestSlogHandlerSecretsInEmbeddedLogger(t *testing.T) {
+	buff := bytes.NewBuffer([]byte{})
+	logger := embeddedLogger{lgr.New(lgr.Out(buff), lgr.Secret("s3cr\"et"))}
+	slog.New(lgr.ToSlogHandler(logger)).Info("msg", "tok", "s3cr\"et", slog.Group("req", "tok", "s3cr\"et"))
+	assert.Contains(t, buff.String(), `msg tok="******" req.tok="******"`+"\n")
+	assert.NotContains(t, buff.String(), "s3cr")
+}

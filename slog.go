@@ -22,7 +22,7 @@ func ToSlogHandler(l L) slog.Handler {
 
 // FromSlogHandler creates lgr.L wrapper around slog.Handler. Records below the level the handler accepts are dropped.
 // FATAL and PANIC are passed as ERROR records and then exit with os.Exit(1), as Logger does;
-// PANIC writes the stacks of all goroutines to stderr first.
+// PANIC writes a fixed heading and the stacks of all goroutines to stderr first; the message goes to the handler only.
 func FromSlogHandler(h slog.Handler) L {
 	return &slogLgrAdapter{handler: h, stderr: os.Stderr, fatal: func() { os.Exit(1) }}
 }
@@ -76,11 +76,11 @@ func (h *lgrSlogHandler) Handle(_ context.Context, record slog.Record) error {
 	// build message with attributes
 	msg := record.Message
 
-	// string values are quoted, so secrets are hidden before quoting changes how they are spelled
-	l, isLogger := h.lgr.(*Logger)
+	// string values are quoted, so secrets are hidden before quoting changes how they are spelled.
+	// the interface also matches types that embed *Logger
 	hide := func(s string) string { return s }
-	if isLogger {
-		hide = l.hideSecrets
+	if hl, ok := h.lgr.(interface{ hideSecrets(string) string }); ok {
+		hide = hl.hideSecrets
 	}
 
 	// format attributes as key=value pairs
@@ -103,7 +103,7 @@ func (h *lgrSlogHandler) Handle(_ context.Context, record slog.Record) error {
 	if attrs.Len() > 0 {
 		logMsg += " " + attrs.String()
 	}
-	if isLogger && record.PC != 0 {
+	if l, isLogger := h.lgr.(*Logger); isLogger && record.PC != 0 {
 		l.logf(record.PC, "%s", logMsg) // report the caller slog recorded, not this method
 		return nil
 	}
@@ -160,10 +160,11 @@ func (a *slogLgrAdapter) Logf(format string, args ...interface{}) {
 		}
 	}
 
-	// FATAL and PANIC stop the program after the record is handled, as they do in Logger
+	// FATAL and PANIC stop the program after the record is handled, as they do in Logger.
+	// the message is left to the handler, which may mask it, so stderr gets only the heading and the dump
 	if lv == "FATAL" || lv == "PANIC" {
 		if lv == "PANIC" {
-			_, _ = fmt.Fprintf(a.stderr, "\n*** PANIC: %s\n\n%s", msg, getDump())
+			_, _ = fmt.Fprintf(a.stderr, "\n*** PANIC\n\n%s", getDump())
 		}
 		a.fatal()
 	}
