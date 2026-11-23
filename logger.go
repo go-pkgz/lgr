@@ -274,8 +274,12 @@ func (l *Logger) logf(pc uintptr, format string, args ...any) {
 	l.lock.Unlock()
 }
 
-// hideSecrets replaces this logger's secrets and the package-level ones it hides in s
+// hideSecrets replaces this logger's secrets and the package-level ones it hides in s.
+// A nil logger, as a type embedding *Logger may hold, hides nothing.
 func (l *Logger) hideSecrets(s string) string {
+	if l == nil {
+		return s
+	}
 	own, shared := l.secrets.list(), l.shared.list()
 	if len(own)+len(shared) == 0 {
 		return s

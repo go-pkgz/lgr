@@ -1158,3 +1158,16 @@ func TestSlogHandlerSecretsInEmbeddedLogger(t *testing.T) {
 	assert.Contains(t, buff.String(), `msg tok="******" req.tok="******"`+"\n")
 	assert.NotContains(t, buff.String(), "s3cr")
 }
+
+// nilSafeLogger embeds *lgr.Logger and logs nothing while it is nil
+type nilSafeLogger struct{ *lgr.Logger }
+
+func (n nilSafeLogger) Logf(format string, args ...any) {
+	if n.Logger != nil {
+		n.Logger.Logf(format, args...)
+	}
+}
+
+func TestSlogHandlerNilEmbeddedLogger(t *testing.T) {
+	assert.NotPanics(t, func() { slog.New(lgr.ToSlogHandler(nilSafeLogger{})).Info("msg", "key", "value") })
+}
