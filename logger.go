@@ -97,7 +97,7 @@ type layout struct {
 }
 
 // New makes new leveled logger. By default writes to stdout/stderr.
-// default format: 2018/01/07 13:02:34.123 DEBUG some message 123
+// default format: 2018/01/07 13:02:34 INFO  some message 123
 func New(options ...Option) *Logger {
 
 	res := Logger{
@@ -142,8 +142,8 @@ func New(options ...Option) *Logger {
 
 // Logf implements L interface to output with printf style.
 // DEBUG and TRACE filtered out by dbg and trace flags.
-// ERROR and FATAL also send the same line to err writer.
-// FATAL and PANIC adds runtime stack and os.exit(1), like panic.
+// ERROR, FATAL and PANIC also send the line to err writer.
+// FATAL and PANIC call os.Exit(1), PANIC dumps all goroutine stacks to err first.
 func (l *Logger) Logf(format string, args ...interface{}) {
 	// to align call depth between (*Logger).Logf() and, for example, Printf()
 	l.logf(0, format, args...)

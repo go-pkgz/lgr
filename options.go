@@ -40,7 +40,7 @@ func CallerDepth(n int) Option {
 	}
 }
 
-// Format sets output layout, overwrites all options for individual parts, i.e. Caller*, Msec and LevelBraces
+// Format sets output layout, overwrites all options for individual parts, i.e. Caller*, Msec, LevelBraces and Map
 func Format(f string) Option {
 	return func(l *Logger) {
 		l.format = f

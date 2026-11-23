@@ -16,7 +16,7 @@
 output looks like this:
 ```
 2018/01/07 13:02:34.000 INFO  {svc/handler.go:101 h.MyFunc1} some important message, can't open file myfile.xyz
-2018/01/07 13:02:34.015 DEBUG {svc/handler.go:155 h.MyFunc2} some less important message, file is too small`
+2018/01/07 13:02:34.015 DEBUG {svc/handler.go:155 h.MyFunc2} some less important message, file is too small
 ```
 
 _Without `lgr.Caller*` it will drop `{caller}` part_
@@ -34,19 +34,20 @@ _Without `lgr.Caller*` it will drop `{caller}` part_
 `lgr.New` call accepts functional options:
 
 - `lgr.Debug` - turn debug mode on to allow messages with "DEBUG" level (filtered otherwise)
-- `lgr.Trace` - turn trace mode on to allow messages with "TRACE" abd "DEBUG" levels both (filtered otherwise)
+- `lgr.Trace` - turn trace mode on to allow messages with "TRACE" and "DEBUG" levels both (filtered otherwise)
 - `lgr.Out(io.Writer)` - sets the output writer, default `os.Stdout`
 - `lgr.Err(io.Writer)` - sets the error writer, default `os.Stderr`
 - `lgr.CallerFile` - adds the caller file info (only affects lgr's native text format, not slog output)
 - `lgr.CallerFunc` - adds the caller function info (only affects lgr's native text format, not slog output)
 - `lgr.CallerPkg` - adds the caller package (only affects lgr's native text format, not slog output)
+- `lgr.CallerDepth(n)` - skips n more stack frames when reporting the caller; use it when lgr is called through a wrapper (1 for `lgr.ToWriter`, 3 for `lgr.ToStdLogger`). `lgr.SetupStdLogger` sets 3 itself, and a `lgr.CallerDepth` passed to it replaces that value. `lgr.ToSlogHandler` takes the caller from the slog record and needs none.
 - `lgr.LevelBraces` - wraps levels with "[" and "]"
 - `lgr.Msec` - adds milliseconds to timestamp
-- `lgr.Format` - sets a custom template, overwrite all other formatting modifiers.
+- `lgr.Format` - sets a custom template, overwrites all other formatting modifiers and the mapper set with `lgr.Map`. A template that fails to parse, or to execute with empty values, is replaced by `lgr.Short`, and a notice about it is printed to the process stdout, not to the `lgr.Out` writer.
 - `lgr.Secret(secret ...)` - sets list of the secrets to hide from the logging outputs, see "secrets".
 - `lgr.Map(mapper)` - sets mapper functions to change elements of the logging output based on levels.
-- `lgr.StackTraceOnError` - turns on stack trace for ERROR level.
-- `lgr.SlogHandler(h slog.Handler)` - delegates logging to the provided slog handler.
+- `lgr.StackTraceOnError` - turns on stack trace for ERROR level. The trace is written to the out writer after the line, not to the err writer.
+- `lgr.SlogHandler(h slog.Handler)` - delegates logging to the provided slog handler. Of the other options, only these still apply: `lgr.Debug` and `lgr.Trace` (lgr filters messages before the handler applies its own level), `lgr.Secret` for the message, `lgr.CallerDepth` for the source position passed to the handler, and the exit after `FATAL` and `PANIC`, with `PANIC` also writing `*** PANIC: <message>` and the goroutine dump to the err writer. All other options are ignored, and `ERROR` and `FATAL` lines are not copied to the err writer.
 
 example: `l := lgr.New(lgr.Debug, lgr.Msec)`
 
@@ -69,8 +70,7 @@ User can make a custom template and pass it directly to `lgr.Format`. For exampl
     lgr.Format(`{{.Level}} - {{.DT.Format "2006-01-02T15:04:05Z07:00"}} - {{.CallerPkg}} - {{.Message}}`)
 ```
 
-_Note: formatter (predefined or custom) adds measurable overhead - the cost will depend on the version of Go, but is between 30
- and 50% in recent tests with 1.12. You can validate this in your environment via benchmarks: `go test -bench=. -run=Bench`_
+_Note: formatter (predefined or custom) adds measurable overhead - the cost will depend on the version of Go. You can validate this in your environment via benchmarks: `go test -bench=. -run=Bench`_
 
 ### secrets
 
@@ -92,7 +92,7 @@ Things to know:
 - The list of a logger and the package-level list are independent. A value present in both stays hidden until removed from both.
 - A line being logged at the moment of the change may still be written with the previous list.
 - Longer values are replaced first, so a secret containing another secret is hidden as a whole. Secrets that only partially overlap are replaced one after another, and a part of one of them may stay visible.
-- Secrets are hidden in the message passed to the logger. `lgr.FromSlogHandler` adds no masking of its own, the output is masked only if the wrapped handler passes it to a masking logger. Attributes added by a slog handler set with `lgr.SlogHandler` are not processed.
+- Secrets are hidden in the message passed to the logger. With `lgr.ToSlogHandler` wrapping a `*lgr.Logger`, attributes are part of that message, and string values are masked before they are quoted. `lgr.FromSlogHandler` adds no masking of its own, the output is masked only if the wrapped handler passes it to a masking logger. Attributes added by a slog handler set with `lgr.SlogHandler` are not processed.
 
 ### levels
 
@@ -101,8 +101,8 @@ Things to know:
 - `TRACE` will be filtered unless `lgr.Trace` option defined
 - `DEBUG` will be filtered unless `lgr.Debug` or `lgr.Trace` options defined
 - `INFO` and `WARN` don't have any special behavior attached
-- `ERROR` sends messages to both out and err writers
-- `FATAL` and send messages to both out and err writers and exit(1)
+- `ERROR` sends messages to both out and err writers, once when both are the same file or writer
+- `FATAL` sends messages to both out and err writers and calls `os.Exit(1)`
 - `PANIC` does the same as `FATAL` but in addition sends dump of callers and runtime info to err.
 
 ### mapper
@@ -111,7 +111,12 @@ Elements of the output can be altered with a set of user defined function passed
 the value of an element (i.e. timestamp, level, message, caller) and has separate functions for each level. Note: both level 
 and messages elements handled by the same function for a given level. 
 
-_A typical use-case is to produce colorful output with a user-define colorization library._
+- `MessageFunc` maps the message on every level, before the function of the level.
+- `TRACE` uses `DebugFunc`, `PANIC` and `FATAL` use `ErrorFunc`.
+- The mapper is ignored when `lgr.Format` or `lgr.SlogHandler` is set.
+- A second `lgr.Map` option replaces the first one.
+
+_A typical use-case is to produce colorful output with a user-defined colorization library._
 
 example with [fatih/color](https://github.com/fatih/color):
 
@@ -131,7 +136,7 @@ example with [fatih/color](https://github.com/fatih/color):
 
 `lgr` logger can be converted to `io.Writer`, `*log.Logger`, or `slog.Handler`
 
-- `lgr.ToWriter(l lgr.L, level string) io.Writer` - makes io.Writer forwarding write ops to underlying `lgr.L`
+- `lgr.ToWriter(l lgr.L, level string) *lgr.Writer` - makes io.Writer forwarding write ops to underlying `lgr.L`
 - `lgr.ToStdLogger(l lgr.L, level string) *log.Logger` - makes standard logger on top of `lgr.L`
 - `lgr.ToSlogHandler(l lgr.L) slog.Handler` - converts lgr.L to a slog.Handler for use with slog. Attributes are written as `key=value` pairs after the message, with group names joined to the keys by dots, as the slog text handler does. When `l` is a `*lgr.Logger`, the `Caller*` options report the code that called the slog method.
 
@@ -217,7 +222,7 @@ This behavior is designed to respect each logging system's conventions for repre
 
 ### global logger
 
-Users **should avoid** global logger and pass the concrete logger as a dependency. However, in some cases a global logger may be needed, for example migration from stdlib `log` to `lgr`. For such cases `log "github.com/go-pkgz/lgr"` can be imported instead of `log` package.
+Users **should avoid** global logger and pass the concrete logger as a dependency. However, in some cases a global logger may be needed, for example migration from stdlib `log` to `lgr`. For such cases `log "github.com/go-pkgz/lgr"` can be imported instead of `log` package, as long as the code calls only the three functions the global logger provides: `Printf`, `Print`, which takes a single string, and `Fatalf`. For code using the rest of the `log` API, such as `log.Println` or `log.Fatal`, keep the standard `log` import and call `lgr.SetupStdLogger` to forward its output to lgr.
 
-Global logger provides `lgr.Printf`, `lgr.Print` and `lgr.Fatalf` functions. User can customize the logger by calling `lgr.Setup(options ...)`. The instance of this logger can be retrieved with `lgr.Default()`
+Global logger provides `lgr.Printf`, `lgr.Print(line string)` and `lgr.Fatalf` functions. `lgr.Fatalf` logs a message without a level prefix at `FATAL`, and exits after any message. User can customize the logger by calling `lgr.Setup(options ...)`. The instance of this logger can be retrieved with `lgr.Default()`
 
