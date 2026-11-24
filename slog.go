@@ -81,7 +81,7 @@ func (h *lgrSlogHandler) Handle(_ context.Context, record slog.Record) error {
 	// the interface also matches types that embed *Logger; a nil pointer to such a type may still
 	// log through its own Logf, while the promoted hideSecrets would dereference it
 	hide := func(s string) string { return s }
-	if hl, ok := h.lgr.(interface{ hideSecrets(string) string }); ok && !isNilPointer(h.lgr) {
+	if hl, ok := h.lgr.(interface{ hideSecrets(string) string }); ok && !h.isNilPointer() {
 		hide = hl.hideSecrets
 	}
 
@@ -174,9 +174,9 @@ func (a *slogLgrAdapter) Logf(format string, args ...interface{}) {
 
 // Helper functions
 
-// isNilPointer reports whether v holds a nil pointer
-func isNilPointer(v any) bool {
-	rv := reflect.ValueOf(v)
+// isNilPointer reports whether the wrapped logger is a nil pointer
+func (h *lgrSlogHandler) isNilPointer() bool {
+	rv := reflect.ValueOf(h.lgr)
 	return rv.Kind() == reflect.Pointer && rv.IsNil()
 }
 

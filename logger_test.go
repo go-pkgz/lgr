@@ -845,7 +845,6 @@ func TestLoggerSlogHandlerLevel(t *testing.T) {
 	assert.Empty(t, hout.String())
 }
 
-// callerLine returns the line it is called from
 func callerLine() int {
 	_, _, line, _ := runtime.Caller(1)
 	return line

@@ -40,7 +40,7 @@ _Without `lgr.Caller*` it will drop `{caller}` part_
 - `lgr.CallerFile` - adds the caller file info (only affects lgr's native text format, not slog output)
 - `lgr.CallerFunc` - adds the caller function info (only affects lgr's native text format, not slog output)
 - `lgr.CallerPkg` - adds the caller package (only affects lgr's native text format, not slog output)
-- `lgr.CallerDepth(n)` - skips n more stack frames when reporting the caller; use it when lgr is called through a wrapper (1 for `lgr.ToWriter`, 3 for `lgr.ToStdLogger`). `lgr.SetupStdLogger` sets 3 itself, and a `lgr.CallerDepth` passed to it replaces that value. `lgr.ToSlogHandler` takes the caller from the slog record and needs none.
+- `lgr.CallerDepth(n)` - skips n more stack frames when reporting the caller; use it when lgr is called through a wrapper (1 for `lgr.ToWriter`, 3 for `lgr.ToStdLogger`). `lgr.SetupStdLogger` sets 3 itself, and a `lgr.CallerDepth` passed to it replaces that value. `lgr.ToSlogHandler` wrapping a `*lgr.Logger` takes the caller from the slog record and needs none; a type that embeds `*lgr.Logger` and logs through its promoted `Logf` needs 3.
 - `lgr.LevelBraces` - wraps levels with "[" and "]"
 - `lgr.Msec` - adds milliseconds to timestamp
 - `lgr.Format` - sets a custom template, overwrites all other formatting modifiers and the mapper set with `lgr.Map`. A template that fails to parse, or to execute with empty values, is replaced by `lgr.Short`, and a notice about it is printed to the process stdout, not to the `lgr.Out` writer.
@@ -92,7 +92,7 @@ Things to know:
 - The list of a logger and the package-level list are independent. A value present in both stays hidden until removed from both.
 - A line being logged at the moment of the change may still be written with the previous list.
 - Longer values are replaced first, so a secret containing another secret is hidden as a whole. Secrets that only partially overlap are replaced one after another, and a part of one of them may stay visible.
-- Secrets are hidden in the message passed to the logger. With `lgr.ToSlogHandler` wrapping a `*lgr.Logger`, or a type that embeds one, attributes are part of that message, and string values are masked before they are quoted. `lgr.FromSlogHandler` adds no masking of its own, the output is masked only if the wrapped handler passes it to a masking logger. Attributes added by a slog handler set with `lgr.SlogHandler` are not processed.
+- Secrets are hidden in the message passed to the logger. With `lgr.ToSlogHandler` wrapping a `*lgr.Logger`, or a type that embeds one, attributes are part of that message, and string values are masked before they are quoted. Any other `lgr.L`, such as an `lgr.Func` around a masking logger, gets string values already quoted, so a secret containing a quote or a backslash is not masked there. `lgr.FromSlogHandler` adds no masking of its own, the output is masked only if the wrapped handler passes it to a masking logger. Attributes added by a slog handler set with `lgr.SlogHandler` are not processed.
 
 ### levels
 

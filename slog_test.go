@@ -727,7 +727,6 @@ func TestStringToLevel(t *testing.T) {
 		{"WARN", slog.LevelWarn},
 		{"ERROR", slog.LevelError},
 		{"UNKNOWN", slog.LevelInfo}, // unknown levels default to INFO
-		// PANIC and FATAL exit the program, TestFromSlogHandlerFatalAndPanic checks they are ERROR records
 	}
 
 	for _, tt := range tests {
@@ -990,7 +989,7 @@ func TestSlogHandlerSiblingsKeepOwnAttrs(t *testing.T) {
 	t.Run("attrs", func(t *testing.T) {
 		buff := bytes.NewBuffer([]byte{})
 		base := slog.New(lgr.ToSlogHandler(lgr.New(lgr.Out(buff))))
-		parent := base.With("a", 1, "b", 2).With("c", 3) // leaves spare capacity in the attrs slice
+		parent := base.With("a", 1, "b", 2).With("c", 3)
 		child1 := parent.With("req", "one")
 		child2 := parent.With("req", "two")
 
@@ -1005,7 +1004,7 @@ func TestSlogHandlerSiblingsKeepOwnAttrs(t *testing.T) {
 	t.Run("groups", func(t *testing.T) {
 		buff := bytes.NewBuffer([]byte{})
 		base := slog.New(lgr.ToSlogHandler(lgr.New(lgr.Out(buff))))
-		parent := base.WithGroup("g1").WithGroup("g2").WithGroup("g3") // leaves spare capacity in the groups slice
+		parent := base.WithGroup("g1").WithGroup("g2").WithGroup("g3")
 		child1 := parent.WithGroup("one")
 		child2 := parent.WithGroup("two")
 
@@ -1159,7 +1158,6 @@ func TestSlogHandlerSecretsInEmbeddedLogger(t *testing.T) {
 	assert.NotContains(t, buff.String(), "s3cr")
 }
 
-// nilSafeLogger embeds *lgr.Logger and logs nothing while it is nil
 type nilSafeLogger struct{ *lgr.Logger }
 
 func (n nilSafeLogger) Logf(format string, args ...any) {
@@ -1168,7 +1166,6 @@ func (n nilSafeLogger) Logf(format string, args ...any) {
 	}
 }
 
-// nilSafePtrLogger is the same with a pointer receiver, so a nil *nilSafePtrLogger is a valid lgr.L
 type nilSafePtrLogger struct{ *lgr.Logger }
 
 func (n *nilSafePtrLogger) Logf(format string, args ...any) {
