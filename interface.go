@@ -40,17 +40,20 @@ func Print(line string) {
 // Fatalf logs the message and exits with os.Exit(1). A message without a level prefix is logged at FATAL,
 // so lgr's own output also writes it to the err writer; a message with a prefix is logged at that level.
 func Fatalf(format string, args ...interface{}) {
-	text := format
+	l := def
+	text := format // formatted once, so arguments with side effects in String are read once
 	if len(args) > 0 {
 		text = fmt.Sprintf(format, args...)
 	}
 	lv, _, found := extractLevel(text)
 	if !found {
-		lv, format, args = "FATAL", "FATAL %s", []any{text}
+		// secrets are hidden before the prefix is added, as logf trims the text after a prefix
+		// and a secret ending in a newline would no longer match
+		lv, text = "FATAL", "FATAL "+l.hideSecrets(text)
 	}
-	def.logf(0, format, args...)
+	l.logf(0, "%s", text)
 	if lv != "FATAL" && lv != "PANIC" { // logf exits on these levels itself
-		def.fatal()
+		l.fatal()
 	}
 }
 

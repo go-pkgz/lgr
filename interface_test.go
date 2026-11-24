@@ -5,7 +5,9 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"log/slog"
 	"os"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -72,7 +74,7 @@ func TestDefaultWithSetup(t *testing.T) {
 	Setup(Out(buff), Debug, Format(FullDebug))
 	def.now = func() time.Time { return time.Date(2018, 1, 7, 13, 2, 34, 0, time.Local) }
 	Printf("[DEBUG] something 123 %s", "xyz")
-	assert.Equal(t, "2018/01/07 13:02:34.000 DEBUG ("+testDir+"/interface_test.go:74 lgr.TestDefaultWithSetup) something 123 xyz\n",
+	assert.Equal(t, "2018/01/07 13:02:34.000 DEBUG ("+testDir+"/interface_test.go:76 lgr.TestDefaultWithSetup) something 123 xyz\n",
 		buff.String())
 }
 
@@ -81,7 +83,7 @@ func TestDefaultFuncWithSetup(t *testing.T) {
 	Setup(Out(buff), Debug, Format(FullDebug))
 	def.now = func() time.Time { return time.Date(2018, 1, 7, 13, 2, 34, 0, time.Local) }
 	Default().Logf("[INFO] something 123 %s", "xyz")
-	assert.Equal(t, "2018/01/07 13:02:34.000 INFO  ("+testDir+"/interface_test.go:83 lgr."+
+	assert.Equal(t, "2018/01/07 13:02:34.000 INFO  ("+testDir+"/interface_test.go:85 lgr."+
 		"TestDefaultFuncWithSetup) something 123 xyz\n", buff.String())
 }
 
@@ -199,4 +201,53 @@ func TestFatalfLevel(t *testing.T) {
 	Fatalf("FATAL with the fatal level")
 	assert.Contains(t, rout.String(), "FATAL {")
 	assert.Equal(t, 3, fatal, "exits once")
+}
+
+// readOnce returns its count and resets it, as a counter read for a report does
+type readOnce struct{ n int }
+
+func (r *readOnce) String() string {
+	res := strconv.Itoa(r.n)
+	r.n = 0
+	return res
+}
+
+func TestFatalfFormatsOnce(t *testing.T) {
+	var fatal int
+	rout := bytes.NewBuffer([]byte{})
+	Setup(Out(rout), Format(Short))
+	def.fatal = func() { fatal++ }
+	defer Setup()
+
+	Fatalf("WARN dropped=%s", &readOnce{n: 8})
+	assert.Contains(t, rout.String(), "WARN  dropped=8\n")
+	assert.Equal(t, 1, fatal)
+}
+
+func TestFatalfHidesSecretEndingInNewline(t *testing.T) {
+	pem := "-----BEGIN KEY-----\nabc\n-----END KEY-----\n"
+	tbl := []struct {
+		name string
+		opts func(out *bytes.Buffer) []Option
+	}{
+		{"SlogHandler", func(out *bytes.Buffer) []Option { return []Option{SlogHandler(slog.NewTextHandler(out, nil))} }},
+		{"Format", func(*bytes.Buffer) []Option { return []Option{Format(`{{.Level}} {{.Message}} end`)} }},
+		{"Map", func(*bytes.Buffer) []Option {
+			return []Option{Map(Mapper{MessageFunc: func(s string) string { return "<" + s + ">" }})}
+		}},
+	}
+	for _, tt := range tbl {
+		t.Run(tt.name, func(t *testing.T) {
+			var fatal int
+			rout, rerr := bytes.NewBuffer([]byte{}), bytes.NewBuffer([]byte{})
+			Setup(append(tt.opts(rout), Out(rout), Err(rerr), Secret(pem))...)
+			def.fatal = func() { fatal++ }
+			defer Setup()
+
+			Fatalf("%s", pem)
+			assert.Contains(t, rout.String(), "******")
+			assert.NotContains(t, rout.String()+rerr.String(), "abc")
+			assert.Equal(t, 1, fatal)
+		})
+	}
 }
