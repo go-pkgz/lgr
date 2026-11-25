@@ -11,13 +11,13 @@ type Logger interface {
 func main() {
 	l := lgr.New(lgr.Format(lgr.FullDebug)) // create lgr instance
 	logConsumer(l)                          // pass logger to consumer
-	// out: 2019/04/01 02:43:20.590 INFO  (_example/main.go:31 main.logConsumer) test 12345
+	// out: 2019/04/01 02:43:20.590 INFO  (_example/main.go:38 main.logConsumer) test 12345
 
 	l2 := lgr.New(lgr.Debug, lgr.Format(lgr.ShortDebug)) // create lgr instance, debug enabled
 	logConsumer(l2)                                      // pass logger to consumer
 	// out:
-	// 2019/04/01 02:43:20.591 INFO  (_example/main.go:31) test 12345
-	// 2019/04/01 02:43:20.591 DEBUG (_example/main.go:32) something
+	// 2019/04/01 02:43:20.591 INFO  (_example/main.go:38) test 12345
+	// 2019/04/01 02:43:20.591 DEBUG (_example/main.go:39) something
 
 	// define custom output format
 	format := lgr.Format(`{{.Level}} - {{.DT.Format "2006-01-02T15:04:05Z07:00"}} - {{.CallerPkg}} - {{.Message}}`)
