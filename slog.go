@@ -73,6 +73,11 @@ func (h *lgrSlogHandler) Enabled(_ context.Context, level slog.Level) bool {
 // Handle implements slog.Handler
 func (h *lgrSlogHandler) Handle(_ context.Context, record slog.Record) error {
 	level := levelToString(record.Level)
+	// the wrapped logger's Debug and Trace options are invisible to Enabled, so a record that logger
+	// drops returns here, before resolving attributes runs LogValue for nothing
+	if l, isLogger := h.lgr.(*Logger); isLogger && l != nil && l.skips(level) {
+		return nil
+	}
 
 	// build message with attributes
 	msg := record.Message

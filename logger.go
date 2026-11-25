@@ -163,10 +163,7 @@ func (l *Logger) logf(pc uintptr, format string, args ...any) {
 		lv, msg, found = extractLevel(fmt.Sprintf(format, args...))
 	}
 
-	if lv == "DEBUG" && !l.dbg {
-		return
-	}
-	if lv == "TRACE" && !l.trace {
+	if l.skips(lv) {
 		return
 	}
 
@@ -281,6 +278,11 @@ func (l *Logger) logf(pc uintptr, format string, args ...any) {
 	}
 
 	l.lock.Unlock()
+}
+
+// skips reports whether this logger drops messages at level lv, DEBUG without Debug or TRACE without Trace.
+func (l *Logger) skips(lv string) bool {
+	return (lv == "DEBUG" && !l.dbg) || (lv == "TRACE" && !l.trace)
 }
 
 // hideSecrets replaces this logger's secrets and the package-level ones it hides in s.

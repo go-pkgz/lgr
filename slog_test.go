@@ -1208,3 +1208,39 @@ func TestFromSlogHandlerKeepsSecretEndingInNewline(t *testing.T) {
 		assert.Contains(t, buff.String(), `level=WARN msg="y\n"`)
 	})
 }
+
+type countingValuer struct{ calls *int }
+
+func (v countingValuer) LogValue() slog.Value {
+	*v.calls++
+	return slog.StringValue("REDACTED")
+}
+
+func TestSlogHandlerResolvesOnlyLoggedRecords(t *testing.T) {
+	tbl := []struct {
+		name  string
+		opts  []lgr.Option
+		level slog.Level
+		calls int
+	}{
+		{name: "debug off", level: slog.LevelDebug, calls: 0},
+		{name: "trace off with debug on", opts: []lgr.Option{lgr.Debug}, level: slog.LevelDebug - 4, calls: 0},
+		{name: "debug on", opts: []lgr.Option{lgr.Debug}, level: slog.LevelDebug, calls: 2},
+		{name: "trace on", opts: []lgr.Option{lgr.Trace}, level: slog.LevelDebug - 4, calls: 2},
+		{name: "info", level: slog.LevelInfo, calls: 2},
+	}
+	for _, tt := range tbl {
+		t.Run(tt.name, func(t *testing.T) {
+			buff := bytes.NewBuffer([]byte{})
+			var calls int
+			l := slog.New(lgr.ToSlogHandler(lgr.New(append(tt.opts, lgr.Out(buff))...)))
+			l.With("w", countingValuer{&calls}).Log(context.Background(), tt.level, "msg", "v", countingValuer{&calls})
+			assert.Equal(t, tt.calls, calls)
+			if tt.calls == 0 {
+				assert.Empty(t, buff.String())
+				return
+			}
+			assert.Contains(t, buff.String(), `msg w="REDACTED" v="REDACTED"`)
+		})
+	}
+}
