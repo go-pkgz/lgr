@@ -203,7 +203,6 @@ func TestFatalfLevel(t *testing.T) {
 	assert.Equal(t, 3, fatal, "exits once")
 }
 
-// readOnce returns its count and resets it, as a counter read for a report does
 type readOnce struct{ n int }
 
 func (r *readOnce) String() string {

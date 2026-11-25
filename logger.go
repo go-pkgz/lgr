@@ -142,7 +142,8 @@ func New(options ...Option) *Logger {
 
 // Logf implements L interface to output with printf style.
 // DEBUG and TRACE filtered out by dbg and trace flags.
-// ERROR, FATAL and PANIC also send the line to err writer.
+// ERROR, FATAL and PANIC also send the line to err writer, except with SlogHandler, where only PANIC writes
+// its heading and dump there.
 // FATAL and PANIC call os.Exit(1), PANIC dumps all goroutine stacks to err first.
 func (l *Logger) Logf(format string, args ...interface{}) {
 	// to align call depth between (*Logger).Logf() and, for example, Printf()
