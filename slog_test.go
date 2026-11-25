@@ -860,8 +860,7 @@ func TestHandleErrors(t *testing.T) {
 }
 
 func TestSetupWithSlog(t *testing.T) {
-	// save original Setup function and restore it after test
-	defer lgr.Setup(lgr.Debug) // just use a simple option to reset
+	defer lgr.Setup()
 
 	// create a buffer to capture output
 	buff := bytes.NewBuffer([]byte{})
@@ -896,8 +895,7 @@ func TestSetupWithSlog(t *testing.T) {
 }
 
 func TestSetupWithSlogDebug(t *testing.T) {
-	// save original Setup function and restore it after test
-	defer lgr.Setup(lgr.Debug) // just use a simple option to reset
+	defer lgr.Setup()
 
 	// create a buffer to capture output
 	buff := bytes.NewBuffer([]byte{})
