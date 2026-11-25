@@ -869,6 +869,23 @@ func TestLoggerHidesSecretEndingInNewlineAfterPrefix(t *testing.T) {
 	}
 }
 
+func TestLoggerKeepsLineEndFromSecrets(t *testing.T) {
+	rout := bytes.NewBuffer([]byte{})
+	l := New(Out(rout), Secret("abc\n"))
+	l.now = func() time.Time { return time.Date(2018, 1, 7, 13, 2, 34, 0, time.Local) }
+	l.Logf("INFO xabc")
+	l.Logf("INFO next")
+	assert.Equal(t, "2018/01/07 13:02:34 INFO  xabc\n2018/01/07 13:02:34 INFO  next\n", rout.String())
+
+	rout.Reset()
+	pem := "-----BEGIN KEY-----\nabc\n-----END KEY-----\n"
+	l = New(Out(rout), Secret(pem))
+	l.now = func() time.Time { return time.Date(2018, 1, 7, 13, 2, 34, 0, time.Local) }
+	l.Logf("WARN loaded %s", pem)
+	l.Logf("INFO next")
+	assert.Equal(t, "2018/01/07 13:02:34 WARN  loaded ******\n2018/01/07 13:02:34 INFO  next\n", rout.String())
+}
+
 func callerLine() int {
 	_, _, line, _ := runtime.Caller(1)
 	return line

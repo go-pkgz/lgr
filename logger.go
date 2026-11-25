@@ -237,13 +237,13 @@ func (l *Logger) logf(pc uintptr, format string, args ...any) {
 		}
 		data = buf.Bytes()
 	}
-	data = append(data, '\n')
 
 	if l.levelBracesOn { // rearrange space in short levels
 		data = bytes.Replace(data, []byte("[WARN ]"), []byte("[WARN] "), 1)
 		data = bytes.Replace(data, []byte("[INFO ]"), []byte("[INFO] "), 1)
 	}
 	data = own.hide(data, shared)
+	data = append(data, '\n') // added after hiding, so a secret ending in a newline cannot take the line's own
 
 	l.lock.Lock()
 	_, _ = l.stdout.Write(data)
