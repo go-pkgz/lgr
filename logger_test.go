@@ -875,7 +875,7 @@ func TestLoggerKeepsLineEndFromSecrets(t *testing.T) {
 	l.now = func() time.Time { return time.Date(2018, 1, 7, 13, 2, 34, 0, time.Local) }
 	l.Logf("INFO xabc")
 	l.Logf("INFO next")
-	assert.Equal(t, "2018/01/07 13:02:34 INFO  xabc\n2018/01/07 13:02:34 INFO  next\n", rout.String())
+	assert.Equal(t, "2018/01/07 13:02:34 INFO  x******\n2018/01/07 13:02:34 INFO  next\n", rout.String())
 
 	rout.Reset()
 	pem := "-----BEGIN KEY-----\nabc\n-----END KEY-----\n"
@@ -884,6 +884,23 @@ func TestLoggerKeepsLineEndFromSecrets(t *testing.T) {
 	l.Logf("WARN loaded %s", pem)
 	l.Logf("INFO next")
 	assert.Equal(t, "2018/01/07 13:02:34 WARN  loaded ******\n2018/01/07 13:02:34 INFO  next\n", rout.String())
+
+	rout.Reset()
+	l = New(Out(rout), Secret(pem))
+	l.now = func() time.Time { return time.Date(2018, 1, 7, 13, 2, 34, 0, time.Local) }
+	l.Logf("INFO key: %s", strings.TrimSpace(pem))
+	l.Logf("INFO next")
+	assert.Equal(t, "2018/01/07 13:02:34 INFO  key: ******\n2018/01/07 13:02:34 INFO  next\n", rout.String())
+
+	rout.Reset()
+	rerr := bytes.NewBuffer([]byte{})
+	secret := "ERROR private-token\n"
+	l = New(Out(rout), Err(rerr), Secret(secret))
+	l.now = func() time.Time { return time.Date(2018, 1, 7, 13, 2, 34, 0, time.Local) }
+	l.Logf("%s", secret)
+	l.Logf("INFO next")
+	assert.Equal(t, "2018/01/07 13:02:34 ******\n2018/01/07 13:02:34 INFO  next\n", rout.String())
+	assert.Equal(t, "2018/01/07 13:02:34 ******\n", rerr.String(), "ERROR still goes to the err writer")
 }
 
 func callerLine() int {

@@ -242,8 +242,12 @@ func (l *Logger) logf(pc uintptr, format string, args ...any) {
 		data = bytes.Replace(data, []byte("[WARN ]"), []byte("[WARN] "), 1)
 		data = bytes.Replace(data, []byte("[INFO ]"), []byte("[INFO] "), 1)
 	}
-	data = own.hide(data, shared)
-	data = append(data, '\n') // added after hiding, so a secret ending in a newline cannot take the line's own
+	// hidden with the line end attached, so a secret ending in a newline still matches here,
+	// and the line end is put back when a secret took it, so the next line stays separate
+	data = own.hide(append(data, '\n'), shared)
+	if data[len(data)-1] != '\n' {
+		data = append(data, '\n')
+	}
 
 	l.lock.Lock()
 	_, _ = l.stdout.Write(data)
