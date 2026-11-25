@@ -1179,3 +1179,34 @@ func TestSlogHandlerNilEmbeddedLogger(t *testing.T) {
 	var nilPtr *nilSafePtrLogger
 	assert.NotPanics(t, func() { slog.New(lgr.ToSlogHandler(nilPtr)).Info("msg", "key", "value") }, "nil pointer to the wrapper")
 }
+
+func TestFromSlogHandlerKeepsSecretEndingInNewline(t *testing.T) {
+	pem := "-----BEGIN KEY-----\nabc\n-----END KEY-----\n"
+
+	t.Run("ReplaceAttr redactor", func(t *testing.T) {
+		buff := bytes.NewBuffer([]byte{})
+		redact := func(_ []string, a slog.Attr) slog.Attr {
+			if a.Key == slog.MessageKey {
+				a.Value = slog.StringValue(strings.ReplaceAll(a.Value.String(), pem, "******"))
+			}
+			return a
+		}
+		lgr.FromSlogHandler(slog.NewTextHandler(buff, &slog.HandlerOptions{ReplaceAttr: redact})).Logf("ERROR failed with %s", pem)
+		assert.Contains(t, buff.String(), `msg="failed with ******"`)
+		assert.NotContains(t, buff.String(), "abc")
+	})
+
+	t.Run("ToSlogHandler with attributes", func(t *testing.T) {
+		buff := bytes.NewBuffer([]byte{})
+		h := lgr.ToSlogHandler(lgr.New(lgr.Out(buff), lgr.Secret(pem))).WithAttrs([]slog.Attr{slog.String("k", "v")})
+		lgr.FromSlogHandler(h).Logf("ERROR failed with %s", pem)
+		assert.Contains(t, buff.String(), `ERROR failed with ****** k="v"`)
+		assert.NotContains(t, buff.String(), "abc")
+	})
+
+	t.Run("newline from the log package", func(t *testing.T) {
+		buff := bytes.NewBuffer([]byte{})
+		lgr.ToStdLogger(lgr.FromSlogHandler(slog.NewTextHandler(buff, nil)), "WARN").Printf("y")
+		assert.Contains(t, buff.String(), `level=WARN msg="y\n"`)
+	})
+}

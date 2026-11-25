@@ -47,9 +47,7 @@ func Fatalf(format string, args ...interface{}) {
 	}
 	lv, _, found := extractLevel(text)
 	if !found {
-		// secrets are hidden before the prefix is added, as logf trims the text after a prefix
-		// and a secret ending in a newline would no longer match
-		lv, text = "FATAL", "FATAL "+l.hideSecrets(text)
+		lv, text = "FATAL", "FATAL "+text
 	}
 	l.logf(0, "%s", text)
 	if lv != "FATAL" && lv != "PANIC" { // logf exits on these levels itself

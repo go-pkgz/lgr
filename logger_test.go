@@ -783,11 +783,12 @@ func TestExtractLevelPrefixes(t *testing.T) {
 		line, level, msg string
 		found            bool
 	}{
-		{"WARN disk almost full", "WARN", "disk almost full", true},
+		{"WARN disk almost full", "WARN", " disk almost full", true},
 		{"WARN: disk almost full", "WARN", ": disk almost full", true},
-		{"WARN\tdisk almost full", "WARN", "disk almost full", true},
+		{"WARN\tdisk almost full", "WARN", "\tdisk almost full", true},
 		{"WARN", "WARN", "", true},
 		{"[WARN]disk almost full", "WARN", "disk almost full", true},
+		{"[WARN] disk almost full\n", "WARN", " disk almost full\n", true},
 		{"WARNING: disk almost full", "INFO", "WARNING: disk almost full", false},
 		{"DEBUGGING started", "INFO", "DEBUGGING started", false},
 		{"TRACEROUTE done", "INFO", "TRACEROUTE done", false},
@@ -843,6 +844,29 @@ func TestLoggerSlogHandlerLevel(t *testing.T) {
 	assert.Equal(t, 2, fatalCalls, "PANIC exits whether the handler takes the record or not")
 	assert.Contains(t, rerr.String(), "*** PANIC: not taken by the handler")
 	assert.Empty(t, hout.String())
+}
+
+func TestLoggerHidesSecretEndingInNewlineAfterPrefix(t *testing.T) {
+	pem := "-----BEGIN KEY-----\nabc\n-----END KEY-----\n"
+	tbl := []struct {
+		name string
+		opts func(out *bytes.Buffer) []Option
+	}{
+		{"SlogHandler", func(out *bytes.Buffer) []Option { return []Option{SlogHandler(slog.NewTextHandler(out, nil))} }},
+		{"Format", func(*bytes.Buffer) []Option { return []Option{Format(`{{.Level}} {{.Message}} end`)} }},
+		{"Map", func(*bytes.Buffer) []Option {
+			return []Option{Map(Mapper{MessageFunc: func(s string) string { return "<" + s + ">" }})}
+		}},
+	}
+	for _, tt := range tbl {
+		t.Run(tt.name, func(t *testing.T) {
+			rout := bytes.NewBuffer([]byte{})
+			l := New(append(tt.opts(rout), Out(rout), Secret(pem))...)
+			l.Logf("[WARN] %s", pem)
+			assert.Contains(t, rout.String(), "******")
+			assert.NotContains(t, rout.String(), "abc")
+		})
+	}
 }
 
 func callerLine() int {

@@ -155,10 +155,11 @@ func (l *Logger) Logf(format string, args ...interface{}) {
 func (l *Logger) logf(pc uintptr, format string, args ...any) {
 
 	var lv, msg string
+	var found bool
 	if len(args) == 0 {
-		lv, msg, _ = extractLevel(format)
+		lv, msg, found = extractLevel(format)
 	} else {
-		lv, msg, _ = extractLevel(fmt.Sprintf(format, args...))
+		lv, msg, found = extractLevel(fmt.Sprintf(format, args...))
 	}
 
 	if lv == "DEBUG" && !l.dbg {
@@ -174,6 +175,9 @@ func (l *Logger) logf(pc uintptr, format string, args ...any) {
 	own, shared := l.secrets.list(), l.shared.list()
 	if len(own)+len(shared) > 0 {
 		msg = string(own.hide([]byte(msg), shared))
+	}
+	if found { // trimmed after hiding, so a secret ending in whitespace still matches
+		msg = strings.TrimSpace(msg)
 	}
 
 	// if slog handler is set, use it
@@ -436,14 +440,14 @@ func (l *Logger) formatLevel(lv string) string {
 // extractLevel parses a message with an optional level prefix and returns the level and the message without it.
 // A bare level counts only when followed by whitespace (space, tab, CR or LF), a colon or the end of the line,
 // so "WARNING" is not WARN; a bracketed level may be followed by anything. A line without a recognized prefix is INFO,
-// with found false.
+// with found false. The message is the rest of the line as it is, separator included; callers decide how to trim it.
 func extractLevel(line string) (level, msg string, found bool) {
 	for _, lv := range levels {
 		if rest, ok := strings.CutPrefix(line, "["+lv+"]"); ok {
-			return lv, strings.TrimSpace(rest), true
+			return lv, rest, true
 		}
 		if rest, ok := strings.CutPrefix(line, lv); ok && (rest == "" || strings.IndexByte(" \t\r\n:", rest[0]) >= 0) {
-			return lv, strings.TrimSpace(rest), true
+			return lv, rest, true
 		}
 	}
 	return "INFO", line, false

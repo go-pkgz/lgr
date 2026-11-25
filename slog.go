@@ -148,7 +148,10 @@ func (a *slogLgrAdapter) Logf(format string, args ...interface{}) {
 	if len(args) > 0 {
 		msg = fmt.Sprintf(format, args...)
 	}
-	lv, msg, _ := extractLevel(msg)
+	lv, msg, found := extractLevel(msg)
+	if found && msg != "" && (msg[0] == ' ' || msg[0] == '\t') {
+		msg = msg[1:] // only the separator goes, the rest reaches the handler as it is, so its redaction still matches
+	}
 	level := stringToLevel(lv)
 
 	if a.handler.Enabled(context.Background(), level) {
