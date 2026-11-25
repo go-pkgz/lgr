@@ -62,8 +62,8 @@ type groupedAttr struct {
 func (h *lgrSlogHandler) Enabled(_ context.Context, level slog.Level) bool {
 	switch {
 	case level < slog.LevelInfo: // debug, Trace
-		// check if underlying lgr logger is configured to show debug
-		// since we can't directly query lgr's debug status, we assume enabled
+		// an lgr.L has no level to query, so every level is reported enabled,
+		// and Handle drops what a wrapped *Logger filters out
 		return true
 	default:
 		return true
@@ -73,6 +73,10 @@ func (h *lgrSlogHandler) Enabled(_ context.Context, level slog.Level) bool {
 // Handle implements slog.Handler
 func (h *lgrSlogHandler) Handle(_ context.Context, record slog.Record) error {
 	level := levelToString(record.Level)
+	// a record the wrapped logger drops returns before resolving attributes runs LogValue for nothing
+	if l, isLogger := h.lgr.(*Logger); isLogger && l.skips(level) {
+		return nil
+	}
 
 	// build message with attributes
 	msg := record.Message
