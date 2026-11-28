@@ -12,23 +12,23 @@ var sharedSecrets secretSet
 
 // L defines minimal interface used to log things
 type L interface {
-	Logf(format string, args ...interface{})
+	Logf(format string, args ...any)
 }
 
 // Func type is an adapter to allow the use of ordinary functions as Logger.
-type Func func(format string, args ...interface{})
+type Func func(format string, args ...any)
 
 // Logf calls f(format, args...)
-func (f Func) Logf(format string, args ...interface{}) { f(format, args...) }
+func (f Func) Logf(format string, args ...any) { f(format, args...) }
 
 // NoOp logger
-var NoOp = Func(func(format string, args ...interface{}) {}) //nolint:revive
+var NoOp = Func(func(format string, args ...any) {}) //nolint:revive
 
 // Std logger sends to std default logger directly
-var Std = Func(func(format string, args ...interface{}) { stdlog.Printf(format, args...) })
+var Std = Func(func(format string, args ...any) { stdlog.Printf(format, args...) })
 
 // Printf simplifies replacement of std logger
-func Printf(format string, args ...interface{}) {
+func Printf(format string, args ...any) {
 	def.logf(0, format, args...)
 }
 
@@ -39,7 +39,7 @@ func Print(line string) {
 
 // Fatalf logs the message and exits with os.Exit(1). A message without a level prefix is logged at FATAL,
 // so lgr's own output also writes it to the err writer; a message with a prefix is logged at that level.
-func Fatalf(format string, args ...interface{}) {
+func Fatalf(format string, args ...any) {
 	l := def
 	text := format // formatted once, so arguments with side effects in String are read once
 	if len(args) > 0 {

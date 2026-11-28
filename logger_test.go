@@ -21,18 +21,18 @@ import (
 func TestLoggerNoDbg(t *testing.T) {
 	tbl := []struct {
 		format     string
-		args       []interface{}
+		args       []any
 		rout, rerr string
 	}{
-		{"aaa", []interface{}{}, "2018/01/07 13:02:34.000 INFO  aaa\n", ""},
-		{"DEBUG something 123 %s", []interface{}{"aaa"}, "", ""},
-		{"[DEBUG] something 123 %s", []interface{}{"aaa"}, "", ""},
-		{"INFO something 123 %s", []interface{}{"aaa"}, "2018/01/07 13:02:34.000 INFO  something 123 aaa\n", ""},
-		{"[INFO] something 123 %s", []interface{}{"aaa"}, "2018/01/07 13:02:34.000 INFO  something 123 aaa\n", ""},
-		{"[INFO] something 123 %s", []interface{}{"aaa\n"}, "2018/01/07 13:02:34.000 INFO  something 123 aaa\n", ""},
-		{"blah something 123 %s", []interface{}{"aaa"}, "2018/01/07 13:02:34.000 INFO  blah something 123 aaa\n", ""},
-		{"WARN something 123 %s", []interface{}{"aaa"}, "2018/01/07 13:02:34.000 WARN  something 123 aaa\n", ""},
-		{"ERROR something 123 %s", []interface{}{"aaa"}, "2018/01/07 13:02:34.000 ERROR something 123 aaa\n",
+		{"aaa", []any{}, "2018/01/07 13:02:34.000 INFO  aaa\n", ""},
+		{"DEBUG something 123 %s", []any{"aaa"}, "", ""},
+		{"[DEBUG] something 123 %s", []any{"aaa"}, "", ""},
+		{"INFO something 123 %s", []any{"aaa"}, "2018/01/07 13:02:34.000 INFO  something 123 aaa\n", ""},
+		{"[INFO] something 123 %s", []any{"aaa"}, "2018/01/07 13:02:34.000 INFO  something 123 aaa\n", ""},
+		{"[INFO] something 123 %s", []any{"aaa\n"}, "2018/01/07 13:02:34.000 INFO  something 123 aaa\n", ""},
+		{"blah something 123 %s", []any{"aaa"}, "2018/01/07 13:02:34.000 INFO  blah something 123 aaa\n", ""},
+		{"WARN something 123 %s", []any{"aaa"}, "2018/01/07 13:02:34.000 WARN  something 123 aaa\n", ""},
+		{"ERROR something 123 %s", []any{"aaa"}, "2018/01/07 13:02:34.000 ERROR something 123 aaa\n",
 			"2018/01/07 13:02:34.000 ERROR something 123 aaa\n"},
 	}
 	rout, rerr := bytes.NewBuffer([]byte{}), bytes.NewBuffer([]byte{})
@@ -53,24 +53,24 @@ func TestLoggerNoDbg(t *testing.T) {
 func TestLoggerWithDbg(t *testing.T) {
 	tbl := []struct {
 		format     string
-		args       []interface{}
+		args       []any
 		rout, rerr string
 	}{
-		{"aaa", []interface{}{},
+		{"aaa", []any{},
 			"2018/01/07 13:02:34.123 INFO  (" + testDir + "/logger_test.go:86 lgr.TestLoggerWithDbg.func2) aaa\n", ""},
-		{"DEBUG something 123 %s", []interface{}{"aaa"},
+		{"DEBUG something 123 %s", []any{"aaa"},
 			"2018/01/07 13:02:34.123 DEBUG (" + testDir + "/logger_test.go:86 lgr.TestLoggerWithDbg.func2) something 123 aaa\n", ""},
-		{"[DEBUG] something 123 %s", []interface{}{"aaa"},
+		{"[DEBUG] something 123 %s", []any{"aaa"},
 			"2018/01/07 13:02:34.123 DEBUG (" + testDir + "/logger_test.go:86 lgr.TestLoggerWithDbg.func2) something 123 aaa\n", ""},
-		{"INFO something 123 %s", []interface{}{"aaa"},
+		{"INFO something 123 %s", []any{"aaa"},
 			"2018/01/07 13:02:34.123 INFO  (" + testDir + "/logger_test.go:86 lgr.TestLoggerWithDbg.func2) something 123 aaa\n", ""},
-		{"[INFO] something 123 %s", []interface{}{"aaa"},
+		{"[INFO] something 123 %s", []any{"aaa"},
 			"2018/01/07 13:02:34.123 INFO  (" + testDir + "/logger_test.go:86 lgr.TestLoggerWithDbg.func2) something 123 aaa\n", ""},
-		{"blah something 123 %s", []interface{}{"aaa"},
+		{"blah something 123 %s", []any{"aaa"},
 			"2018/01/07 13:02:34.123 INFO  (" + testDir + "/logger_test.go:86 lgr.TestLoggerWithDbg.func2) blah something 123 aaa\n", ""},
-		{"WARN something 123 %s", []interface{}{"aaa"},
+		{"WARN something 123 %s", []any{"aaa"},
 			"2018/01/07 13:02:34.123 WARN  (" + testDir + "/logger_test.go:86 lgr.TestLoggerWithDbg.func2) something 123 aaa\n", ""},
-		{"ERROR something 123 %s", []interface{}{"aaa"},
+		{"ERROR something 123 %s", []any{"aaa"},
 			"2018/01/07 13:02:34.123 ERROR (" + testDir + "/logger_test.go:86 lgr.TestLoggerWithDbg.func2) something 123 aaa\n",
 			"2018/01/07 13:02:34.123 ERROR (" + testDir + "/logger_test.go:86 lgr.TestLoggerWithDbg.func2) something 123 aaa\n"},
 	}
@@ -488,12 +488,12 @@ func TestLoggerOverwriteFormat(t *testing.T) {
 func TestLoggerNoSpaceLevel(t *testing.T) {
 	tbl := []struct {
 		format     string
-		args       []interface{}
+		args       []any
 		rout, rerr string
 	}{
 		{"INFOsomething 123 %s", []any{"aaa1"}, "2018/01/07 13:02:34.000 INFO  INFOsomething 123 aaa1\n", ""},
-		{"[INFO]something 123 %s", []interface{}{"aaa1"}, "2018/01/07 13:02:34.000 INFO  something 123 aaa1\n", ""},
-		{"[INFO]something 123 %s", []interface{}{"aaa1\n"}, "2018/01/07 13:02:34.000 INFO  something 123 aaa1\n", ""},
+		{"[INFO]something 123 %s", []any{"aaa1"}, "2018/01/07 13:02:34.000 INFO  something 123 aaa1\n", ""},
+		{"[INFO]something 123 %s", []any{"aaa1\n"}, "2018/01/07 13:02:34.000 INFO  something 123 aaa1\n", ""},
 		{"[WARN]something 123 %s", []any{"aaa1"}, "2018/01/07 13:02:34.000 WARN  something 123 aaa1\n", ""},
 		{"[ERROR]something 123 %s", []any{"aaa1"}, "2018/01/07 13:02:34.000 ERROR something 123 aaa1\n",
 			"2018/01/07 13:02:34.000 ERROR something 123 aaa1\n"},
