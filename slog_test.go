@@ -230,7 +230,7 @@ func TestFromSlogHandlerJSON(t *testing.T) {
 
 	// verify JSON format
 	outStr := buff.String()
-	var entry map[string]interface{}
+	var entry map[string]any
 	lines := bytes.Split(bytes.TrimSpace([]byte(outStr)), []byte("\n"))
 	err := json.Unmarshal(lines[0], &entry)
 	require.NoError(t, err)
@@ -249,7 +249,7 @@ func TestFromSlogHandlerJSONAddSourceFalse(t *testing.T) {
 	logger := lgr.FromSlogHandler(jsonHandler)
 	logger.Logf("DEBUG debug from lgr")
 
-	var entry map[string]interface{}
+	var entry map[string]any
 	lines := bytes.Split(bytes.TrimSpace(buff.Bytes()), []byte("\n"))
 	err := json.Unmarshal(lines[0], &entry)
 	require.NoError(t, err)
@@ -271,12 +271,12 @@ func TestFromSlogHandlerJSONAddSourceTrue(t *testing.T) {
 	logger := lgr.FromSlogHandler(jsonHandler)
 	logger.Logf("INFO info from lgr")
 
-	var entry map[string]interface{}
+	var entry map[string]any
 	err := json.Unmarshal(buff.Bytes(), &entry)
 	require.NoError(t, err)
 	assert.Equal(t, "info from lgr", entry["msg"])
 
-	source, hasSource := entry["source"].(map[string]interface{})
+	source, hasSource := entry["source"].(map[string]any)
 	require.True(t, hasSource, "expected source field when AddSource is true")
 	assert.Contains(t, source["file"], "slog_test.go")
 	assert.Contains(t, source["function"], "TestFromSlogHandlerJSONAddSourceTrue")
@@ -294,12 +294,12 @@ func TestDirect_SlogHandlerAddSource(t *testing.T) {
 	logger := lgr.New(lgr.SlogHandler(jsonHandler), lgr.Debug)
 	logger.Logf("INFO message via lgr.New")
 
-	var entry map[string]interface{}
+	var entry map[string]any
 	err := json.Unmarshal(buff.Bytes(), &entry)
 	require.NoError(t, err)
 	assert.Equal(t, "message via lgr.New", entry["msg"])
 
-	source, hasSource := entry["source"].(map[string]interface{})
+	source, hasSource := entry["source"].(map[string]any)
 	require.True(t, hasSource, "expected source field when AddSource is true via lgr.New path")
 	assert.Contains(t, source["file"], "slog_test.go")
 	assert.Contains(t, source["function"], "TestDirect_SlogHandlerAddSource")
@@ -326,7 +326,7 @@ func TestDirect_SlogHandler(t *testing.T) {
 	require.Len(t, lines, 2)
 
 	// verify first message
-	var entry map[string]interface{}
+	var entry map[string]any
 	err := json.Unmarshal([]byte(lines[0]), &entry)
 	require.NoError(t, err)
 	assert.Equal(t, "DEBUG", entry["level"])
@@ -354,12 +354,12 @@ func TestSlogWithOptions(t *testing.T) {
 		outStr := buff.String()
 		t.Logf("JSON with caller output from slog: %s", outStr)
 
-		var entry map[string]interface{}
+		var entry map[string]any
 		err := json.Unmarshal([]byte(outStr), &entry)
 		require.NoError(t, err, "Output should be valid JSON")
 
 		// verify source info is present with AddSource option
-		source, hasSource := entry["source"].(map[string]interface{})
+		source, hasSource := entry["source"].(map[string]any)
 		require.True(t, hasSource, "Source info should be present in JSON output")
 		assert.Contains(t, source, "file", "Should include source file")
 		assert.Contains(t, source, "line", "Should include source line")
@@ -403,12 +403,12 @@ func TestSlogWithOptions(t *testing.T) {
 		jsonOutput := jsonBuff.String()
 		t.Logf("JSON output with caller: %s", jsonOutput)
 
-		var entry map[string]interface{}
+		var entry map[string]any
 		err := json.Unmarshal([]byte(jsonOutput), &entry)
 		require.NoError(t, err, "Output should be valid JSON")
 
 		// verify source info is present in JSON output when using AddSource
-		source, hasSource := entry["source"].(map[string]interface{})
+		source, hasSource := entry["source"].(map[string]any)
 		require.True(t, hasSource, "Source info should be present in JSON output")
 		assert.Contains(t, source, "file", "Should include source file")
 		assert.Contains(t, source, "line", "Should include source line")
@@ -560,7 +560,7 @@ func TestSlogWithOptions(t *testing.T) {
 		t.Logf("JSON output: %s", outStr)
 
 		// parse and verify JSON
-		var entry map[string]interface{}
+		var entry map[string]any
 		err := json.Unmarshal([]byte(outStr), &entry)
 		require.NoError(t, err, "Output should be valid JSON")
 
@@ -569,7 +569,7 @@ func TestSlogWithOptions(t *testing.T) {
 		assert.Equal(t, "message with metadata key1=value key2=42", entry["msg"])
 		assert.Contains(t, entry, "time")
 		// source info is optional and may not be included in all implementations
-		if source, hasSource := entry["source"].(map[string]interface{}); hasSource {
+		if source, hasSource := entry["source"].(map[string]any); hasSource {
 			assert.Contains(t, source, "file")
 		}
 	})
@@ -611,7 +611,7 @@ func TestSlogWithOptions(t *testing.T) {
 		t.Logf("Complex JSON handler output: %s", outStr)
 
 		// parse and check JSON
-		var entry map[string]interface{}
+		var entry map[string]any
 		err := json.Unmarshal([]byte(outStr), &entry)
 		require.NoError(t, err, "Should be valid JSON")
 
@@ -662,7 +662,7 @@ func TestSlogWithOptions(t *testing.T) {
 		t.Logf("Lgr with JSON handler: %s", jsonOutput)
 
 		// parse JSON
-		var entry map[string]interface{}
+		var entry map[string]any
 		err := json.Unmarshal([]byte(jsonOutput), &entry)
 		require.NoError(t, err, "Should be valid JSON")
 
@@ -671,7 +671,7 @@ func TestSlogWithOptions(t *testing.T) {
 		assert.Equal(t, "INFO", entry["level"])
 
 		// check if source info is included in the JSON
-		if source, hasSource := entry["source"].(map[string]interface{}); hasSource {
+		if source, hasSource := entry["source"].(map[string]any); hasSource {
 			t.Logf("Source info found in JSON: %v", source)
 			assert.Contains(t, source, "file", "Should include source file")
 			assert.Contains(t, source, "line", "Should include source line")
@@ -884,7 +884,7 @@ func TestSetupWithSlog(t *testing.T) {
 	t.Logf("Global logger output: %s", outStr)
 
 	// parse JSON output
-	var entry map[string]interface{}
+	var entry map[string]any
 	err := json.Unmarshal([]byte(outStr), &entry)
 	require.NoError(t, err, "Output should be valid JSON")
 
@@ -923,7 +923,7 @@ func TestSetupWithSlogDebug(t *testing.T) {
 	if outStr == "" {
 		t.Fatal("Expected output but buffer is empty - DEBUG message was filtered out")
 	}
-	var entry map[string]interface{}
+	var entry map[string]any
 	err := json.Unmarshal([]byte(outStr), &entry)
 	require.NoError(t, err, "Output should be valid JSON")
 
@@ -959,7 +959,7 @@ func TestDirect_SlogHandlerSecrets(t *testing.T) {
 
 	logger.Logf("INFO auth with password123 and topsecret")
 
-	var entry map[string]interface{}
+	var entry map[string]any
 	require.NoError(t, json.Unmarshal(buff.Bytes(), &entry))
 	assert.Equal(t, "auth with ****** and ******", entry["msg"])
 	assert.NotContains(t, buff.String(), "password123")

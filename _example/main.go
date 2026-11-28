@@ -5,7 +5,7 @@ import "github.com/go-pkgz/lgr"
 // Logger defines application's logger interface. Note - it doesn't introduce any dependency on lgr
 // and can be replaced with anything providing Logf function
 type Logger interface {
-	Logf(format string, args ...interface{})
+	Logf(format string, args ...any)
 }
 
 func main() {

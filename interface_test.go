@@ -18,7 +18,7 @@ import (
 
 func TestLogger(t *testing.T) {
 	buff := bytes.NewBufferString("")
-	lg := Func(func(format string, args ...interface{}) {
+	lg := Func(func(format string, args ...any) {
 		_, err := fmt.Fprintf(buff, format, args...)
 		require.NoError(t, err)
 	})

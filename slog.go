@@ -147,7 +147,7 @@ type slogLgrAdapter struct {
 }
 
 // Logf implements lgr.L interface
-func (a *slogLgrAdapter) Logf(format string, args ...interface{}) {
+func (a *slogLgrAdapter) Logf(format string, args ...any) {
 	msg := format
 	if len(args) > 0 {
 		msg = fmt.Sprintf(format, args...)

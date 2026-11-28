@@ -145,7 +145,7 @@ func New(options ...Option) *Logger {
 // ERROR, FATAL and PANIC also send the line to err writer, except with SlogHandler, where only PANIC writes
 // its heading and dump there.
 // FATAL and PANIC call os.Exit(1), PANIC dumps all goroutine stacks to err first.
-func (l *Logger) Logf(format string, args ...interface{}) {
+func (l *Logger) Logf(format string, args ...any) {
 	// to align call depth between (*Logger).Logf() and, for example, Printf()
 	l.logf(0, format, args...)
 }
@@ -495,10 +495,7 @@ func (l *Logger) levelMapper(level string) mapFunc {
 func getDump() []byte {
 	maxSize := 5 * 1024 * 1024
 	stacktrace := make([]byte, maxSize)
-	length := runtime.Stack(stacktrace, true)
-	if length > maxSize {
-		length = maxSize
-	}
+	length := min(runtime.Stack(stacktrace, true), maxSize)
 	return stacktrace[:length]
 }
 
